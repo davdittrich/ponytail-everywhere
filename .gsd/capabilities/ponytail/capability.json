@@ -1,0 +1,84 @@
+{
+  "id": "ponytail",
+  "role": "feature",
+  "version": "0.1.0",
+  "title": "Ponytail lazy-ladder discipline",
+  "description": "Advisory-only ladder-discipline reminders (YAGNI, reuse, stdlib/native before dependencies, shortest working diff) surfaced at plan:pre, execute:wave:pre, and execute:wave:post.",
+  "tier": "full",
+  "requires": [],
+  "engines": {
+    "gsd": ">=1.10.0"
+  },
+  "runtimeCompat": {
+    "supported": [
+      "*"
+    ],
+    "unsupported": []
+  },
+  "skills": [],
+  "agents": [],
+  "hooks": [],
+  "config": {
+    "ponytail.enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Master toggle for the ponytail lazy-ladder capability. Defaults true (D-03) — diverges from beads.enabled's default-false."
+    },
+    "ponytail.level": {
+      "type": "enum",
+      "values": [
+        "lite",
+        "full",
+        "ultra"
+      ],
+      "default": "full",
+      "description": "Intensity of injected ladder-discipline reminders, mirrors /ponytail's own levels (D-04)."
+    }
+  },
+  "steps": [],
+  "contributions": [
+    {
+      "point": "plan:pre",
+      "into": "planner",
+      "produces": [],
+      "consumes": [],
+      "fragment": {
+        "path": "fragments/planner-ladder.md"
+      },
+      "when": "ponytail.enabled",
+      "configValues": {
+        "level": "ponytail.level"
+      },
+      "onError": "skip"
+    },
+    {
+      "point": "execute:wave:pre",
+      "into": "executor",
+      "produces": [],
+      "consumes": [],
+      "fragment": {
+        "path": "fragments/executor-ladder.md"
+      },
+      "when": "ponytail.enabled",
+      "configValues": {
+        "level": "ponytail.level"
+      },
+      "onError": "skip"
+    },
+    {
+      "point": "execute:wave:post",
+      "into": "verifier",
+      "produces": [],
+      "consumes": [],
+      "fragment": {
+        "path": "fragments/verifier-ladder.md"
+      },
+      "when": "ponytail.enabled",
+      "configValues": {
+        "level": "ponytail.level"
+      },
+      "onError": "skip"
+    }
+  ],
+  "gates": []
+}

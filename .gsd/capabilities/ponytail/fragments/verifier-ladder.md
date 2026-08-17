@@ -1,0 +1,4 @@
+Ponytail lazy-ladder discipline for verification (advisory, not a gate).
+Flag unrequested abstractions, speculative flexibility, single-implementation interfaces, and scaffolding built "for later." Report these as findings, not as blockers — this capability declares zero gates.
+At the resolved ponytail.level: lite flags only the most obvious cases (does this need to exist at all, is it already reused elsewhere in this codebase); full flags the whole ladder's violations — missed stdlib, missed native platform features, missed already-installed dependencies; ultra also flags existing code that could have been deleted instead of extended.
+Never treat as a finding: input validation at trust boundaries, error handling that prevents data loss, security controls, accessibility basics, or anything explicitly requested — those are floors, not violations.
