@@ -1,7 +1,7 @@
 {
   "id": "ponytail",
   "role": "feature",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "title": "Ponytail lazy-ladder discipline",
   "description": "Lazy-ladder reminders plus Claude Code command-expansion proportionality checks.",
   "tier": "full",
