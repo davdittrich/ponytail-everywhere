@@ -3,7 +3,7 @@
   "role": "feature",
   "version": "0.1.0",
   "title": "Ponytail lazy-ladder discipline",
-  "description": "Advisory-only ladder-discipline reminders (YAGNI, reuse, stdlib/native before dependencies, shortest working diff) surfaced at plan:pre, execute:wave:pre, and execute:wave:post.",
+  "description": "Lazy-ladder reminders plus Claude Code command-expansion proportionality checks.",
   "tier": "full",
   "requires": [],
   "engines": {
@@ -33,6 +33,16 @@
       ],
       "default": "full",
       "description": "Intensity of injected ladder-discipline reminders, mirrors /ponytail's own levels (D-04)."
+    },
+    "ponytail.enforcement": {
+      "type": "enum",
+      "values": [
+        "advisory",
+        "warn",
+        "block"
+      ],
+      "default": "warn",
+      "description": "How clear scope-expansion mismatches are handled before supported Claude Code commands expand."
     }
   },
   "steps": [],
