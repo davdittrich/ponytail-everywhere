@@ -6,6 +6,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CAPABILITY_SOURCE="$REPO_ROOT/.gsd/capabilities/ponytail"
 BRIDGE_REL=".gsd/capabilities/ponytail/skills/quick-planner"
 RENDERER="$CAPABILITY_SOURCE/skills/quick-planner/render.cjs"
+PLANNER_FRAGMENT="$CAPABILITY_SOURCE/fragments/planner-ladder.md"
 SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
 
@@ -90,6 +91,25 @@ init_quick() {
 }
 
 [ -f "$RENDERER" ] || fail "bridge renderer missing"
+[ -f "$PLANNER_FRAGMENT" ] || fail "planner ladder fragment missing"
+
+assert_current_scope_contract() {
+  local text
+
+  for text in \
+    'Historical context may guide discovery but cannot authorize concrete mutable scope without a current task-relevant observation.' \
+    'Explicit user-fixed scope and immutable inputs remain concrete without a precondition.' \
+    'When mutable scope has not been observed, keep it conditional and make the current read-only observation the first action before mutation.' \
+    'When plan-time evidence may drift before execution, use one concrete read-only task-local <precondition> immediately before mutation.' \
+    'Do not add a precondition for facts produced by the task or intra-plan ordering already represented by depends_on.' \
+    'A live merge index and an API resource version or migration state are domain-neutral examples, not command prescriptions.'; do
+    grep -Fq "$text" "$PLANNER_FRAGMENT" \
+      || fail "planner fragment missing current-scope contract: $text"
+  done
+}
+
+assert_current_scope_contract
+pass "planner fragment preserves current-observation scope fixtures"
 
 # Exact internal call and selector: fixed argv, first matching contribution once.
 SPY_BIN="$SCRATCH/spy-bin"

@@ -52,6 +52,12 @@ assert_static_contract() {
     grep -Fqx "$text" "$FRAGMENT" >/dev/null || fail "fragment missing exact contract: $text"
   done
   for text in \
+    'Report a missing-current-evidence finding when a concrete mutable scope claim lacks a current task-relevant observation; name the scope claim, missing observation, and evidence.' \
+    'Report a missing-revalidation finding when drift-prone plan-time evidence lacks one concrete read-only task-local <precondition> immediately before mutation; name the scope claim, missing revalidation, and evidence.'; do
+    grep -Fqx "$text" "$FRAGMENT" >/dev/null \
+      || fail "fragment missing exact current-scope contract: $text"
+  done
+  for text in \
     'violated property' \
     'evidence' \
     'fix_hint' \

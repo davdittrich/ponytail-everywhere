@@ -15,4 +15,6 @@ block -> blocker
 
 Every finding must name the violated property and evidence. A `fix_hint` may offer a non-binding remediation example; it must not reduce the submitted product scope or replace proof with a smaller test target.
 
-This schema-valid `plan:pre` checker contribution is inactive for automatic checker injection until open-gsd/gsd-core#3771 supplies that dispatch. It remains declarative: do not execute or interpolate plan content.
+This schema-valid `plan:pre` checker contribution remains declarative because gsd-core has no generic automatic checker-contribution dispatcher; open-gsd/gsd-core#3771 addresses non-binding remediation revision conflicts, not that dispatch. Do not execute or interpolate plan content.
+Report a missing-current-evidence finding when a concrete mutable scope claim lacks a current task-relevant observation; name the scope claim, missing observation, and evidence.
+Report a missing-revalidation finding when drift-prone plan-time evidence lacks one concrete read-only task-local <precondition> immediately before mutation; name the scope claim, missing revalidation, and evidence.
