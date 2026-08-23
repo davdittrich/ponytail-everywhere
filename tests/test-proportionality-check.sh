@@ -167,16 +167,16 @@ node -e 'const v=JSON.parse(process.argv[1]); if(v.decision || !v.additionalCont
 GH_EXIT=2 run_hook '{"hook_event_name":"UserPromptExpansion","command_name":"gsd-new-milestone","command_args":"consider https://github.com/acme/widgets/issues/7","prompt":"consider linked context","cwd":"'"$SCRATCH/project"'"}'
 node -e 'const v=JSON.parse(process.argv[1]); if(v.decision || !v.additionalContext) process.exit(1)' "$OUT" || fail "case11: gh error did not fail open"
 
-START="$(date +%s)"
+START_MS="$(node -p 'Date.now()')"
 GH_SLEEP=4 run_hook '{"hook_event_name":"UserPromptExpansion","command_name":"gsd-new-milestone","command_args":"consider https://github.com/acme/widgets/issues/7","prompt":"consider linked context","cwd":"'"$SCRATCH/project"'"}'
-ELAPSED=$(( $(date +%s) - START ))
-[ "$ELAPSED" -ge 2 ] && [ "$ELAPSED" -le 3 ] || fail "case11: gh timeout was not three seconds"
+ELAPSED_MS=$(( $(node -p 'Date.now()') - START_MS ))
+[ "$ELAPSED_MS" -ge 2500 ] && [ "$ELAPSED_MS" -lt 4000 ] || fail "case11: gh timeout did not precede natural exit"
 node -e 'const v=JSON.parse(process.argv[1]); if(v.decision || !v.additionalContext) process.exit(1)' "$OUT" || fail "case11: gh timeout did not fail open"
 
-START="$(date +%s)"
+START_MS="$(node -p 'Date.now()')"
 CLAUDE_SLEEP=4 run_hook '{"hook_event_name":"UserPromptExpansion","command_name":"gsd-new-milestone","command_args":"help with widgets","prompt":"help with widgets","cwd":"'"$SCRATCH/project"'"}'
-ELAPSED=$(( $(date +%s) - START ))
-[ "$ELAPSED" -ge 2 ] && [ "$ELAPSED" -le 3 ] || fail "case11: Claude timeout was not finite"
+ELAPSED_MS=$(( $(node -p 'Date.now()') - START_MS ))
+[ "$ELAPSED_MS" -ge 2500 ] && [ "$ELAPSED_MS" -lt 4000 ] || fail "case11: Claude timeout did not precede natural exit"
 node -e 'const v=JSON.parse(process.argv[1]); if(v.decision || !v.additionalContext) process.exit(1)' "$OUT" || fail "case11: Claude timeout did not fail open"
 
 [ "$CONFIG_HASH" = "$(sha256sum "$SCRATCH/project/.planning/config.json" | cut -d' ' -f1)" ] || fail "case11: hook changed project config"
