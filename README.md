@@ -104,11 +104,13 @@ dispatch will replace this bridge after
 [open-gsd/gsd-core#3778](https://github.com/open-gsd/gsd-core/issues/3778) ships,
 tracked by [#5](https://github.com/davdittrich/ponytail-everywhere/issues/5).
 
+The active planner contribution applies the same scope rule in standard planning and bridged Quick planning: historical context may guide discovery but cannot authorize concrete mutable targets without a current task-relevant observation. Explicit user-fixed and immutable scope stays concrete; unobserved mutable scope stays conditional and observes first; drift-prone plan-time evidence uses one concrete read-only task-local `<precondition>` immediately before mutation. Facts produced by the task and ordering already expressed by `depends_on` do not gain redundant preconditions.
+
 ### Plan-review proportionality
 
 The capability also declares one schema-valid `plan:pre` contribution for the `checker` role. It asks plan review to prove only genuinely distinct behavior: compare identical mechanism bytes statically, execute one representative for identical argv and control flow, and execute once per distinct argv or control path. `ponytail.enforcement` maps to checker `info` (`advisory`), `warning` (`warn`), or `blocker` (`block`) findings; each finding names the violated property and evidence, while any `fix_hint` is non-binding.
 
-This declaration does not currently inject into automatic checker runs: that remains inactive until [open-gsd/gsd-core#3771](https://github.com/open-gsd/gsd-core/issues/3771) ships its dispatch. After any capability-bundle edit, re-consent with `gsd-tools capability install /path/to/ponytail-everywhere/.gsd/capabilities/ponytail --scope project --yes`; project-scope consent hashes the entire bundle.
+This declaration does not currently inject into automatic checker runs because gsd-core has no generic checker-contribution dispatcher. [open-gsd/gsd-core#3771](https://github.com/open-gsd/gsd-core/issues/3771) addresses non-binding remediation revision conflicts, not checker-contribution dispatch. After any capability-bundle edit, re-consent with `gsd-tools capability install /path/to/ponytail-everywhere/.gsd/capabilities/ponytail --scope project --yes`; project-scope consent hashes the entire bundle.
 
 ## Uninstall
 

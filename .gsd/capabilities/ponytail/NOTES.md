@@ -33,12 +33,12 @@ no ladder text and applies equally to standard, validate, and full Quick modes.
 This bridge remains downstream-only until open-gsd/gsd-core#3778 ships; #5
 tracks its removal in favor of native Quick dispatch.
 
+Both standard and bridged Quick planner delivery use the same current-evidence rule: historical context may guide discovery but cannot authorize concrete mutable targets without a current task-relevant observation. Explicit user-fixed and immutable scope stays concrete; unobserved mutable scope stays conditional and observes first; drift-prone plan-time evidence uses one concrete read-only task-local `<precondition>` immediately before mutation. Facts produced by the task and ordering already expressed by `depends_on` do not gain redundant preconditions.
+
 ## Plan-review checker declaration
 
 `plan:pre` → `into: "checker"` resolves `fragments/checker-proportionality.md` verbatim with
-`ponytail.enforcement`. The declaration is schema-valid in gsd-core 1.11.0, but it is inactive
-for automatic checker injection until [open-gsd/gsd-core#3771](https://github.com/open-gsd/gsd-core/issues/3771)
-adds the workflow dispatch. Do not claim present checker delivery, patch gsd-core, or add a local
+`ponytail.enforcement`. The declaration is schema-valid in gsd-core 1.11.0 but remains declarative because gsd-core has no generic automatic checker-contribution dispatcher. [open-gsd/gsd-core#3771](https://github.com/open-gsd/gsd-core/issues/3771) addresses non-binding remediation revision conflicts, not that dispatch. Do not claim present checker delivery, patch gsd-core, or add a local
 bridge: this capability owns only the declarative contribution.
 
 The fragment keeps verification proportional: equal mechanism bytes, argv, and control path get
