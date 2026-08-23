@@ -33,6 +33,20 @@ no ladder text and applies equally to standard, validate, and full Quick modes.
 This bridge remains downstream-only until open-gsd/gsd-core#3778 ships; #5
 tracks its removal in favor of native Quick dispatch.
 
+## Plan-review checker declaration
+
+`plan:pre` → `into: "checker"` resolves `fragments/checker-proportionality.md` verbatim with
+`ponytail.enforcement`. The declaration is schema-valid in gsd-core 1.11.0, but it is inactive
+for automatic checker injection until [open-gsd/gsd-core#3771](https://github.com/open-gsd/gsd-core/issues/3771)
+adds the workflow dispatch. Do not claim present checker delivery, patch gsd-core, or add a local
+bridge: this capability owns only the declarative contribution.
+
+The fragment keeps verification proportional: equal mechanism bytes, argv, and control path get
+static identity proof plus one execution; a behavior-selecting argv or control-path difference gets
+one execution per distinct behavior. Findings require property and evidence, and `fix_hint` text is
+explicitly non-binding so it cannot reduce product scope. Re-consent after this bundle change before
+relying on its project-scope contribution.
+
 ## Forward-compatible no-ops today
 
 `execute:wave:pre` → `into: "executor"` and `execute:wave:post` → `into: "verifier"` are schema-valid

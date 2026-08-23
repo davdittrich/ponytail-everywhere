@@ -1,7 +1,7 @@
 {
   "id": "ponytail",
   "role": "feature",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "title": "Ponytail lazy-ladder discipline",
   "description": "Lazy-ladder reminders plus Claude Code command-expansion proportionality checks.",
   "tier": "full",
@@ -44,7 +44,7 @@
         "block"
       ],
       "default": "warn",
-      "description": "How clear scope-expansion mismatches are handled before supported Claude Code commands expand."
+      "description": "How clear scope-expansion mismatches are handled for Claude Code command-expansion decisions and plan-review checker severity outcomes."
     }
   },
   "steps": [],
@@ -60,6 +60,20 @@
       "when": "ponytail.enabled",
       "configValues": {
         "level": "ponytail.level"
+      },
+      "onError": "skip"
+    },
+    {
+      "point": "plan:pre",
+      "into": "checker",
+      "produces": [],
+      "consumes": [],
+      "fragment": {
+        "path": "fragments/checker-proportionality.md"
+      },
+      "when": "ponytail.enabled",
+      "configValues": {
+        "enforcement": "ponytail.enforcement"
       },
       "onError": "skip"
     },

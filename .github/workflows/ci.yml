@@ -16,6 +16,9 @@ jobs:
       - name: quick planner bridge integration test
         run: bash tests/test-quick-planner-bridge.sh
 
+      - name: plan-review contribution integration test
+        run: bash tests/test-plan-review-contribution.sh
+
       - name: session-start smoke test
         run: bash tests/test-session-start.sh
 
