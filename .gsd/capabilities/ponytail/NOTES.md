@@ -25,6 +25,14 @@ anywhere in the shipped gsd-core workflow markdown (`plan-phase.md`). When `pony
 resolves true, `fragments/planner-ladder.md` is read and injected verbatim into the `gsd-planner`
 subagent's own prompt, along with the resolved `ponytail.level` value via `configValues`.
 
+Quick planning uses the same contribution through the project-scoped
+`skills/quick-planner` bridge when that path is appended to
+`agent_skills.gsd-planner`. The bridge asks `render-hooks plan:pre` for the
+resolved registry and emits only Ponytail's active planner fragment. It copies
+no ladder text and applies equally to standard, validate, and full Quick modes.
+This bridge remains downstream-only until open-gsd/gsd-core#3778 ships; #5
+tracks its removal in favor of native Quick dispatch.
+
 ## Forward-compatible no-ops today
 
 `execute:wave:pre` → `into: "executor"` and `execute:wave:post` → `into: "verifier"` are schema-valid

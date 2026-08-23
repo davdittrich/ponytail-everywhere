@@ -70,6 +70,40 @@ claude plugin install ponytail-everywhere@gsd-beads -y
 The marketplace stays hosted at `davdittrich/gsd-beads` even though this plugin lives in its own
 repo — the marketplace entry just points here.
 
+### Quick planner bridge
+
+GSD Quick does not yet dispatch `plan:pre` planner contributions. Install the
+Ponytail capability into each GSD project that needs runtime-neutral Quick
+delivery, then append its project-relative bridge to that project's
+`.planning/config.json`:
+
+```bash
+gsd-tools capability install /path/to/ponytail-everywhere/.gsd/capabilities/ponytail \
+  --scope project --yes
+```
+
+```json
+{
+  "agent_skills": {
+    "gsd-planner": [
+      "existing/planner-skill",
+      ".gsd/capabilities/ponytail/skills/quick-planner"
+    ]
+  }
+}
+```
+
+Keep every existing `gsd-planner` entry in its current order and append the
+bridge once. Configuration is intentionally per-project: a project with its own
+`.planning/config.json` does not inherit `agent_skills` from user defaults.
+The bridge covers `/gsd-quick`, `/gsd-quick --validate`, and `/gsd-quick --full`;
+it resolves the active Ponytail `plan:pre` contribution, so disabled,
+runtime-incompatible, and absent contributions remain silent and
+`ponytail.level` uses the same fragment as normal phase planning. Native Quick
+dispatch will replace this bridge after
+[open-gsd/gsd-core#3778](https://github.com/open-gsd/gsd-core/issues/3778) ships,
+tracked by [#5](https://github.com/davdittrich/ponytail-everywhere/issues/5).
+
 ## Uninstall
 
 ```bash
