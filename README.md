@@ -80,8 +80,13 @@ this interception from this repository.
 ## Install
 
 ```bash
+# Claude Code
 claude plugin marketplace add davdittrich/gsd-beads
 claude plugin install ponytail-everywhere@gsd-beads -y
+
+# Codex
+codex plugin marketplace add davdittrich/gsd-beads --json
+codex plugin add ponytail-everywhere@gsd-beads --json
 ```
 
 The marketplace stays hosted at `davdittrich/gsd-beads` even though this plugin lives in its own
@@ -133,6 +138,7 @@ This declaration does not currently inject into automatic checker runs because g
 
 ```bash
 claude plugin uninstall ponytail-everywhere -y
+codex plugin remove ponytail-everywhere@gsd-beads --json
 ```
 
 ## Caveats
@@ -145,9 +151,9 @@ claude plugin uninstall ponytail-everywhere -y
   `ponytail.enforcement` (`advisory` | `warn` | `block`, default `warn`).
 - **The `SessionStart` hook re-grants the capability bundle at user scope on every session
   start**, and exits silently when the bundle is unchanged.
-- **Installing through the marketplace copies the cloned repo into the installer's local plugin
-  cache** under `~/.claude/plugins/cache/` — documented Claude Code behavior this repo does not
-  control.
+- **Installing through the marketplace copies the cloned repo into the runtime's local plugin
+  cache** under `~/.claude/plugins/cache/` for Claude Code or `~/.codex/plugins/cache/` for Codex.
+  This repo does not control either runtime's cache layout.
 
 ## License
 
