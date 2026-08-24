@@ -9,8 +9,25 @@ installable overlay, not a fork — that injects advisory lazy-ladder discipline
 before writing, stdlib/native before dependencies, shortest working diff) at three gsd lifecycle
 points: the planner at `plan:pre`, the executor at `execute:wave:pre`, and the verifier at
 `execute:wave:post`. It also prints the same ladder banner on Claude Code's `SessionStart` and on
-`gsd-planner`/`gsd-executor`/`gsd-verifier` subagent start, so the discipline reminder reaches a
-session whether or not a gsd phase is currently running.
+`gsd-planner`/`gsd-executor`/`gsd-code-reviewer`/`gsd-verifier` subagent start, so the discipline
+reminder reaches a session whether or not a gsd phase is currently running.
+
+### Claude collaborator review guidance
+
+Claude-only `SubagentStart` routing sends `gsd-code-reviewer` and `gsd-verifier` through the existing
+verifier role. Malformed or missing collaborator output must be detected and reported, never silently
+accepted as a passing result. Format, style, and quality failures are non-blocking only when safe
+continuation preserves artifact integrity and all external contracts.
+
+- When evidenced, required findings: unhandled edge cases, ignored return values, swallowed errors, invalid boundary
+  inputs, lazy structure, and plan-transcription code.
+- Suggestions: evidence-backed performance, testing, intent, and minor-style concerns, unless an
+  independent non-waivable condition applies.
+- Non-waivable blockers: security, trust-boundary, data-loss, race, accessibility, source/document divergence,
+  constructor-divergence, ASVS, and TDD.
+
+Runtime-neutral collaborator guidance remains tracked in
+[issue #3](https://github.com/davdittrich/ponytail-everywhere/issues/3).
 
 ## Pre-expansion proportionality
 

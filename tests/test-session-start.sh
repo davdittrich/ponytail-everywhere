@@ -7,6 +7,8 @@ set -u
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT="$REPO_ROOT/hooks/session-start.sh"
 PLUGIN_DIR="$REPO_ROOT"
+HOOKS="$REPO_ROOT/hooks/hooks.json"
+README="$REPO_ROOT/README.md"
 
 fail() { echo "FAIL: $1"; exit 1; }
 pass() { echo "PASS: $1"; }
@@ -88,7 +90,24 @@ mk_scratch '{"ponytail": {"enabled": true, "level": "full"}}'
 OUT="$(CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT" verifier)"
 run_and_cleanup
 echo "$OUT" | grep -q 'flag unrequested abstractions' || fail "case7: verifier framing line missing"
+echo "$OUT" | grep -q 'malformed or missing collaborator output' || fail "case7: malformed collaborator output contract missing"
+echo "$OUT" | grep -q 'safe continuation preserves artifact integrity and all external contracts' || fail "case7: conditional non-blocking contract missing"
+echo "$OUT" | grep -q 'When evidenced, required findings: unhandled edge cases, ignored return values, swallowed errors, invalid boundary inputs, lazy structure, and plan-transcription code' || fail "case7: evidenced required finding classes missing"
+echo "$OUT" | grep -q 'Suggestions: evidence-backed performance, testing, intent, and minor-style concerns' || fail "case7: suggestion classes missing"
+echo "$OUT" | grep -q 'Non-waivable blockers: security, trust-boundary, data-loss, race, accessibility, source/document divergence, constructor-divergence, ASVS, and TDD' || fail "case7: non-waivable blocker classes missing"
 pass "case7: ROLE=verifier framing"
+
+# --- Case 7a: reviewer and verifier route independently through verifier framing ---
+jq -e '([.hooks.SubagentStart[] | select(.matcher == "gsd-code-reviewer") | .hooks[] | select(.command == "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\" verifier")] | length == 1) and ([.hooks.SubagentStart[] | select(.matcher == "gsd-verifier") | .hooks[] | select(.command == "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\" verifier")] | length == 1)' "$HOOKS" >/dev/null || fail "case7a: reviewer/verifier SubagentStart routing mismatch"
+grep -Fq 'Claude-only' "$README" || fail "case7a: README Claude-only boundary missing"
+grep -Fq 'https://github.com/davdittrich/ponytail-everywhere/issues/3' "$README" || fail "case7a: README runtime-neutral follow-up missing"
+grep -Fq 'unhandled edge cases' "$README" || fail "case7a: README required finding classes missing"
+grep -Fq 'evidence-backed performance' "$README" || fail "case7a: README suggestion classes missing"
+grep -Fq 'When evidenced, required findings' "$README" || fail "case7a: README evidence condition missing"
+grep -Fq 'source/document divergence' "$README" || fail "case7a: README source/document divergence missing"
+jq -e '.version == "0.5.0"' "$REPO_ROOT/.claude-plugin/plugin.json" >/dev/null || fail "case7a: plugin version is not 0.5.0"
+jq -e '.version == "0.5.0"' "$REPO_ROOT/.gsd/capabilities/ponytail/capability.json" >/dev/null || fail "case7a: capability version is not 0.5.0"
+pass "case7a: reviewer/verifier routing, README, and version contracts"
 
 # --- Case 8: no argument -> generic framing, none of the three role lines ---
 mk_scratch '{"ponytail": {"enabled": true, "level": "full"}}'

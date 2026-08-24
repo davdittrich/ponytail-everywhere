@@ -44,7 +44,7 @@ esac
 case "$ROLE" in
   planner) FRAMING='Planning: pick the laziest viable task shape — fewest files, fewest new artifacts; drop tasks whose need is speculative.' ;;
   executor) FRAMING='Executing: climb the ladder before writing code — reuse before writing, stdlib before dependencies, shortest working diff.' ;;
-  verifier) FRAMING='Verifying: flag unrequested abstractions, speculative flexibility, and interfaces with a single implementation.' ;;
+  verifier) FRAMING='Verifying collaborator output: flag unrequested abstractions, speculative flexibility, and interfaces with a single implementation; malformed or missing collaborator output must be detected and reported, never silently accepted as a passing result. Format, style, and quality failures are non-blocking only when safe continuation preserves artifact integrity and all external contracts. When evidenced, required findings: unhandled edge cases, ignored return values, swallowed errors, invalid boundary inputs, lazy structure, and plan-transcription code. Suggestions: evidence-backed performance, testing, intent, and minor-style concerns. Non-waivable blockers: security, trust-boundary, data-loss, race, accessibility, source/document divergence, constructor-divergence, ASVS, and TDD.' ;;
   *) FRAMING='Prefer the laziest solution that actually works — deletion over addition, boring over clever.' ;;
 esac
 
