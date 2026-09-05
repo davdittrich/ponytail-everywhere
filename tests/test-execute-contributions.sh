@@ -162,7 +162,7 @@ pass "no executor or verifier landing site: both execute contributions remain un
 # --- documentation must match the evidence ---------------------------------------
 
 NOTES="$CAPABILITY_SOURCE/NOTES.md"
-for text in 'neither target agent' 'open-gsd/gsd-core#XXXX'; do
+for text in 'neither target agent' 'open-gsd/gsd-core#4350'; do
   grep -Fq "$text" "$NOTES" || fail "NOTES omits undelivered-reach contract: $text"
   grep -Fq "$text" "$REPO_ROOT/README.md" || fail "README omits undelivered-reach contract: $text"
 done
