@@ -64,9 +64,14 @@ it does contain sits after the wave loop, not at `execute:wave:post`. Both fragm
 in the orchestrator's own context and reach neither target agent.
 
 Do not describe these two contributions as functional. `tests/test-execute-contributions.sh` pins the
-observed state from both sides: it proves the dispatch instruction exists at both points, proves the
-landing-site probe is not blind by finding the planner one, and fails the moment an executor or
-verifier landing site appears — update this section and the README in that same change.
+observed state from both sides. It proves the dispatch instruction exists at both points. It then
+probes the whole execute workflow tree — entry file, `execute-plan.md`, and the `execute-phase/steps`
+files it delegates to — for two independent signatures of a landing site: any contribution-role
+selection (`into ==` or `into ===`, either quote style), and any change in how often the wave hook
+envelope variables are referenced. The role-selection pattern is validated against the planner
+landing site first, so an upstream rewording fails the probe instead of reporting a false absence.
+Either signature appearing fails the test: re-verify reach, then update this section and the README
+in that same change.
 
 Tracked upstream as open-gsd/gsd-core#XXXX. Related: open-gsd/gsd-core#3997 asks for the same landing
 site in external reviewer prompts; open-gsd/gsd-core#4286 records the upstream position that an

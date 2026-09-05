@@ -29,7 +29,11 @@ continuation preserves artifact integrity and all external contracts.
 - Non-waivable blockers: security, trust-boundary, data-loss, race, accessibility, source/document divergence,
   constructor-divergence, ASVS, and TDD.
 
-Runtime-neutral collaborator guidance remains tracked in
+Runtime-neutral collaborator reach is blocked upstream, not here: gsd-core dispatches the
+`execute:wave:pre` and `execute:wave:post` contributions but offers no landing site for the
+`executor` or `verifier` role, so the `SubagentStart` hooks above remain the only execute-time and
+verify-time delivery. Tracked upstream as open-gsd/gsd-core#XXXX; the downstream evidence and its
+regression test are in
 [issue #3](https://github.com/davdittrich/ponytail-everywhere/issues/3).
 
 ## Pre-expansion proportionality

@@ -22,9 +22,9 @@ if command -v gsd-tools >/dev/null 2>&1; then
   GSD_COMMAND="$(command -v gsd-tools)"
   GSD_CJS=""
   GSD_ENTRY="$GSD_COMMAND"
-elif [ -f "${GSD_TOOLS_CJS:-/home/dd/.codex/gsd-core/bin/gsd-tools.cjs}" ]; then
+elif [ -f "${GSD_TOOLS_CJS:-$HOME/.codex/gsd-core/bin/gsd-tools.cjs}" ]; then
   GSD_COMMAND=""
-  GSD_CJS="${GSD_TOOLS_CJS:-/home/dd/.codex/gsd-core/bin/gsd-tools.cjs}"
+  GSD_CJS="${GSD_TOOLS_CJS:-$HOME/.codex/gsd-core/bin/gsd-tools.cjs}"
   GSD_ENTRY="$GSD_CJS"
 else
   fail "gsd-tools 1.12.0 or later is required"
@@ -117,14 +117,26 @@ DISPATCH='inject every `kind == "contribution"` fragment'
   || fail "host execute workflow lacks generic contribution dispatch at both wave points; gsd-core 1.12.0 or later is required"
 pass "host dispatches contributions at execute:wave:pre and execute:wave:post"
 
-# Positive control: the probe must find the one landing site that does exist.
-grep -Fq 'into == "planner"' "$PLAN_WORKFLOW" \
-  || fail "landing-site probe found no planner landing site; upstream reworded it and this probe is now blind"
+# The execute workflow delegates to step files, so probe the whole tree, not the entry file.
+EXECUTE_TREE=("$EXECUTE_WORKFLOW" "$WORKFLOWS/execute-plan.md" "$WORKFLOWS/execute-phase")
+# Any quote style and both equality spellings, so a reworded landing site is still caught.
+ROLE_SELECT='into[[:space:]]*===?[[:space:]]*["'"'"']'
+
+# Positive control: this is how upstream spells role selection where a landing site does exist.
+grep -Eq "$ROLE_SELECT" "$PLAN_WORKFLOW" \
+  || fail "landing-site probe matched no role selection in the plan workflow; upstream reworded it and this probe is now blind"
 pass "landing-site probe detects the planner landing site"
 
-for role in executor verifier; do
-  ! grep -Fq "into == \"$role\"" "$EXECUTE_WORKFLOW" \
-    || fail "host now has an $role landing site: contributions may be delivered — re-verify reach, then update NOTES.md and README.md in the same change"
+HIT="$(grep -Ern "$ROLE_SELECT" "${EXECUTE_TREE[@]}" 2>/dev/null || true)"
+[ -z "$HIT" ] \
+  || fail "execute workflow tree now selects a contribution role: $HIT — re-verify reach, then update NOTES.md and README.md in the same change"
+
+# Second, syntax-independent predicate: any landing site must consume the wave hook envelope.
+# Today each variable is referenced only where it is assigned (and, for wave:post, read).
+for pair in "WAVE_PRE_HOOKS_JSON 1" "WAVE_POST_HOOKS_JSON 2"; do
+  set -- $pair
+  [ "$(grep -Fc "$1" "$EXECUTE_WORKFLOW")" = "$2" ] \
+    || fail "$1 reference count in the execute workflow changed — a landing site may now consume it; re-verify reach, then update NOTES.md and README.md in the same change"
 done
 pass "no executor or verifier landing site: both execute contributions remain undelivered"
 
@@ -137,7 +149,7 @@ for text in 'reach neither target agent' 'open-gsd/gsd-core#XXXX'; do
 done
 grep -Fq 'test-execute-contributions.sh' "$REPO_ROOT/.github/workflows/ci.yml" \
   || fail "CI does not run the execute-point reach test"
-grep -Fq '@opengsd/gsd-core@1.12.0' "$REPO_ROOT/.github/workflows/ci.yml" \
+grep -Eq '@opengsd/gsd-core@1\.(1[2-9]|[2-9][0-9])\.' "$REPO_ROOT/.github/workflows/ci.yml" \
   || fail "CI does not install a gsd-core with execute-point contribution dispatch"
 pass "documentation and CI match the observed reach"
 
