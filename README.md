@@ -6,9 +6,12 @@ Lazy-ladder discipline and proportionality checks across gsd's plan/execute/veri
 
 `ponytail-everywhere` is a [gsd-core](https://github.com/open-gsd/gsd-core) capability — an
 installable overlay, not a fork — that injects advisory lazy-ladder discipline (YAGNI, reuse
-before writing, stdlib/native before dependencies, shortest working diff) at three gsd lifecycle
-points: the planner at `plan:pre`, the executor at `execute:wave:pre`, and the verifier at
-`execute:wave:post`. It also prints the same ladder banner on Claude Code's `SessionStart` and on
+before writing, stdlib/native before dependencies, shortest working diff) into the planner at
+`plan:pre`. It declares the same discipline for the executor at `execute:wave:pre` and the verifier
+at `execute:wave:post`, but those two fragments reach neither target agent on gsd-core 1.12.0: the
+execute workflow dispatches contributions without a landing site for either role, so both land in
+the orchestrator's context only (open-gsd/gsd-core#XXXX). It also prints the same ladder banner on
+Claude Code's `SessionStart` and on
 `gsd-planner`/`gsd-executor`/`gsd-code-reviewer`/`gsd-verifier` subagent start, so the discipline
 reminder reaches a session whether or not a gsd phase is currently running.
 
