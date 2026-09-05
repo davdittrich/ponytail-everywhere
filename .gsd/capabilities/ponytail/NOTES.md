@@ -1,7 +1,9 @@
 # ponytail capability — what actually reaches an agent
 
-This capability declares three `contributions[]` entries at `plan:pre`, `execute:wave:pre`, and
-`execute:wave:post`. Only one of them is functional at gsd-core 1.10.0.
+This capability declares four `contributions[]` entries: two at `plan:pre` (`planner`, `checker`)
+and one each at `execute:wave:pre` (`executor`) and `execute:wave:post` (`verifier`). Only the
+planner entry reaches its agent. The checker entry has no dispatcher; the two execute entries have
+no landing site.
 
 **Point correction (discovered at install time, not by RESEARCH.md):** the third entry was
 originally authored at `verify:pre` with `into: "verifier"`. `capability install` rejected it:
@@ -60,22 +62,28 @@ execute workflow now tells the orchestrator to inject every `kind == "contributi
 also carries an explicit landing site inside the planner subagent prompt that injects each
 `into == "planner"` fragment verbatim. The execute workflow carries no `into ==` selection anywhere:
 its executor `Agent(prompt=...)` template has no contribution block, and the one `gsd-verifier` spawn
-it does contain sits after the wave loop, not at `execute:wave:post`. Both fragments therefore land
-in the orchestrator's own context and reach neither target agent.
+it does contain sits after the wave loop, not at `execute:wave:post`. The orchestrator is therefore told to inject
+both fragments for roles it has no site to inject them into, and neither target agent receives
+them.
 
-Do not describe these two contributions as functional. `tests/test-execute-contributions.sh` pins the
-observed state from both sides. It proves the dispatch instruction exists at both points. It then
-probes the whole execute workflow tree — entry file, `execute-plan.md`, and the `execute-phase/steps`
-files it delegates to — for two independent signatures of a landing site: any contribution-role
-selection (`into ==` or `into ===`, either quote style), and any change in how often the wave hook
-envelope variables are referenced. The role-selection pattern is validated against the planner
-landing site first, so an upstream rewording fails the probe instead of reporting a false absence.
-Either signature appearing fails the test: re-verify reach, then update this section and the README
-in that same change.
+Do not describe these two contributions as functional. `tests/test-execute-contributions.sh` pins
+this state and fails when it changes — including when it changes in Ponytail's favour. Re-verify
+reach and update this section and the README in whatever change makes it fail.
+
+Keep both entries declared. They name roles the host contract publishes, they carry the
+role-tailored fragments D-05 asks for, and they activate with no change to this capability once a
+landing site exists — the same reason this repo's `beads` capability declares `steps[]` entries
+beyond its minimum functional set.
+
+The two halves are not equally fixable. `executor` is dispatched a few steps after
+`execute:wave:pre`, so a landing site in that prompt is a real seam. No verifier agent is dispatched
+at `execute:wave:post` at all, which is the pattern open-gsd/gsd-core#4286 closed as wontfix: an
+admissible role at a point that never dispatches that agent is not reach. Expect the verifier half
+to need a different point, not a landing site.
 
 Tracked upstream as open-gsd/gsd-core#XXXX. Related: open-gsd/gsd-core#3997 asks for the same landing
-site in external reviewer prompts; open-gsd/gsd-core#4286 records the upstream position that an
-admissible role is not reach.
+site in external reviewer prompts, and asserts in its own body that Ponytail already reaches the
+executor and verifier roles — this section is the evidence that it does not.
 
 `engines.gsd` stays `>=1.10.0`. Raising it to `>=1.12.0` would gate the whole capability — including
 the `plan:pre` planner contribution, which works on 1.10.0 and 1.11.0 — on a release that delivers

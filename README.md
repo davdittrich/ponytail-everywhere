@@ -9,8 +9,8 @@ installable overlay, not a fork — that injects advisory lazy-ladder discipline
 before writing, stdlib/native before dependencies, shortest working diff) into the planner at
 `plan:pre`. It declares the same discipline for the executor at `execute:wave:pre` and the verifier
 at `execute:wave:post`, but those two fragments reach neither target agent on gsd-core 1.12.0: the
-execute workflow dispatches contributions without a landing site for either role, so both land in
-the orchestrator's context only (open-gsd/gsd-core#XXXX). It also prints the same ladder banner on
+execute workflow dispatches contributions without a landing site for either role, so the
+orchestrator has nowhere to route them (open-gsd/gsd-core#XXXX). It also prints the same ladder banner on
 Claude Code's `SessionStart` and on
 `gsd-planner`/`gsd-executor`/`gsd-code-reviewer`/`gsd-verifier` subagent start, so the discipline
 reminder reaches a session whether or not a gsd phase is currently running.
