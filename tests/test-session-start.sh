@@ -105,8 +105,8 @@ grep -Fq 'unhandled edge cases' "$README" || fail "case7a: README required findi
 grep -Fq 'evidence-backed performance' "$README" || fail "case7a: README suggestion classes missing"
 grep -Fq 'When evidenced, required findings' "$README" || fail "case7a: README evidence condition missing"
 grep -Fq 'source/document divergence' "$README" || fail "case7a: README source/document divergence missing"
-jq -e '.version == "0.5.1"' "$REPO_ROOT/.claude-plugin/plugin.json" >/dev/null || fail "case7a: plugin version is not 0.5.1"
-jq -e '.version == "0.5.1"' "$REPO_ROOT/.gsd/capabilities/ponytail/capability.json" >/dev/null || fail "case7a: capability version is not 0.5.1"
+jq -e '.version == "0.6.0"' "$REPO_ROOT/.claude-plugin/plugin.json" >/dev/null || fail "case7a: plugin version is not 0.6.0"
+jq -e '.version == "0.6.0"' "$REPO_ROOT/.gsd/capabilities/ponytail/capability.json" >/dev/null || fail "case7a: capability version is not 0.6.0"
 pass "case7a: reviewer/verifier routing, README, and version contracts"
 
 # --- Case 8: no argument -> generic framing, none of the three role lines ---
