@@ -6,9 +6,12 @@ Lazy-ladder discipline and proportionality checks across gsd's plan/execute/veri
 
 `ponytail-everywhere` is a [gsd-core](https://github.com/open-gsd/gsd-core) capability — an
 installable overlay, not a fork — that injects advisory lazy-ladder discipline (YAGNI, reuse
-before writing, stdlib/native before dependencies, shortest working diff) at three gsd lifecycle
-points: the planner at `plan:pre`, the executor at `execute:wave:pre`, and the verifier at
-`execute:wave:post`. It also prints the same ladder banner on Claude Code's `SessionStart` and on
+before writing, stdlib/native before dependencies, shortest working diff) into the planner at
+`plan:pre`. It declares the same discipline for the executor at `execute:wave:pre` and the verifier
+at `execute:wave:post`, but those two fragments reach neither target agent on gsd-core 1.12.0: the
+execute workflow dispatches contributions without a landing site for either role, so the
+orchestrator has nowhere to route them (open-gsd/gsd-core#4350). It also prints the same ladder banner on
+Claude Code's `SessionStart` and on
 `gsd-planner`/`gsd-executor`/`gsd-code-reviewer`/`gsd-verifier` subagent start, so the discipline
 reminder reaches a session whether or not a gsd phase is currently running.
 
@@ -26,7 +29,11 @@ continuation preserves artifact integrity and all external contracts.
 - Non-waivable blockers: security, trust-boundary, data-loss, race, accessibility, source/document divergence,
   constructor-divergence, ASVS, and TDD.
 
-Runtime-neutral collaborator guidance remains tracked in
+Runtime-neutral collaborator reach is blocked upstream, not here: gsd-core dispatches the
+`execute:wave:pre` and `execute:wave:post` contributions but offers no landing site for the
+`executor` or `verifier` role, so the `SubagentStart` hooks above remain the only execute-time and
+verify-time delivery. Tracked upstream as open-gsd/gsd-core#4350; the downstream evidence and its
+regression test are in
 [issue #3](https://github.com/davdittrich/ponytail-everywhere/issues/3).
 
 ## Pre-expansion proportionality

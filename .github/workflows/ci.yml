@@ -11,13 +11,16 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: install gsd-core
-        run: npm install --global @opengsd/gsd-core@1.11.0
+        run: npm install --global @opengsd/gsd-core@1.12.0
 
       - name: quick planner bridge integration test
         run: bash tests/test-quick-planner-bridge.sh
 
       - name: plan-review contribution integration test
         run: bash tests/test-plan-review-contribution.sh
+
+      - name: execute-point contribution reach test
+        run: bash tests/test-execute-contributions.sh
 
       - name: session-start smoke test
         run: bash tests/test-session-start.sh

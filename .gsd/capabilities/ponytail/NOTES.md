@@ -1,7 +1,9 @@
 # ponytail capability — what actually reaches an agent
 
-This capability declares three `contributions[]` entries at `plan:pre`, `execute:wave:pre`, and
-`execute:wave:post`. Only one of them is functional at gsd-core 1.10.0.
+This capability declares four `contributions[]` entries: two at `plan:pre` (`planner`, `checker`)
+and one each at `execute:wave:pre` (`executor`) and `execute:wave:post` (`verifier`). Only the
+planner entry reaches its agent. The checker entry has no dispatcher; the two execute entries have
+no landing site.
 
 **Point correction (discovered at install time, not by RESEARCH.md):** the third entry was
 originally authored at `verify:pre` with `into: "verifier"`. `capability install` rejected it:
@@ -47,19 +49,49 @@ one execution per distinct behavior. Findings require property and evidence, and
 explicitly non-binding so it cannot reduce product scope. Re-consent after this bundle change before
 relying on its project-scope contribution.
 
-## Forward-compatible no-ops today
+## Declared but undelivered at the execute points
 
-`execute:wave:pre` → `into: "executor"` and `execute:wave:post` → `into: "verifier"` are schema-valid
-and are returned by `gsd_run loop render-hooks <point> --raw` in `activeHooks` exactly like the
-`plan:pre` entry — the resolver is generic across all lifecycle points. But no workflow markdown at
-either of those points contains a `kind == "contribution"` read-and-inject instruction, so today
-these two entries are read by nobody. They are declared anyway, matching D-05's role-tailored intent
-and this repo's own `beads` capability precedent of declaring `steps[]` entries beyond the minimum
-functional set — should a future gsd-core version add generic contribution dispatch at those points,
-these entries activate with no change to this capability. `gsd_run loop render-hooks verify:pre --raw`
-returns zero `ponytail` entries, and always will under this design — `verify:pre`'s only legal
-`contribution.into` value is `"orchestrator"` (see Point correction above), which this capability
-does not target.
+`execute:wave:pre` → `into: "executor"` and `execute:wave:post` → `into: "verifier"` are
+schema-valid, name roles the generated loop host contract publishes for those points, and are
+returned by `gsd_run loop render-hooks <point> --raw` in `activeHooks` exactly like the `plan:pre`
+entries.
+
+gsd-core 1.12.0 added generic contribution dispatch at both points — 1.11.0 had none — so the
+execute workflow now tells the orchestrator to inject every `kind == "contribution"` fragment per
+`references/loop-hook-dispatch.md`. That instruction is necessary, not sufficient. The plan workflow
+also carries an explicit landing site inside the planner subagent prompt that injects each
+`into == "planner"` fragment verbatim. The execute workflow carries no `into ==` selection anywhere:
+its executor `Agent(prompt=...)` template has no contribution block, and the one `gsd-verifier` spawn
+it does contain sits after the wave loop, not at `execute:wave:post`. The orchestrator is therefore told to inject
+both fragments for roles it has no site to inject them into, and neither target agent receives
+them.
+
+Do not describe these two contributions as functional. `tests/test-execute-contributions.sh` pins
+this state and fails when it changes — including when it changes in Ponytail's favour. Re-verify
+reach and update this section and the README in whatever change makes it fail.
+
+Keep both entries declared. They name roles the host contract publishes, they carry the
+role-tailored fragments D-05 asks for, and they activate with no change to this capability once a
+landing site exists — the same reason this repo's `beads` capability declares `steps[]` entries
+beyond its minimum functional set.
+
+The two halves are not equally fixable. `executor` is dispatched a few steps after
+`execute:wave:pre`, so a landing site in that prompt is a real seam. No verifier agent is dispatched
+at `execute:wave:post` at all, which is the pattern open-gsd/gsd-core#4286 closed as wontfix: an
+admissible role at a point that never dispatches that agent is not reach. Expect the verifier half
+to need a different point, not a landing site.
+
+Tracked upstream as open-gsd/gsd-core#4350. Related: open-gsd/gsd-core#3997 asks for the same landing
+site in external reviewer prompts, and asserts in its own body that Ponytail already reaches the
+executor and verifier roles — this section is the evidence that it does not.
+
+`engines.gsd` stays `>=1.10.0`. Raising it to `>=1.12.0` would gate the whole capability — including
+the `plan:pre` planner contribution, which works on 1.10.0 and 1.11.0 — on a release that delivers
+nothing extra to these two entries. Raise it when a landing site makes them functional.
+
+`gsd_run loop render-hooks verify:pre --raw` returns zero `ponytail` entries, and always will under
+this design — `verify:pre`'s only legal `contribution.into` value is `"orchestrator"` (see the Point
+correction above), which this capability does not target.
 
 Actual execute-time and verify-time reach in this repo comes from a different mechanism entirely:
 the sibling `ponytail-everywhere` Claude Code plugin's role-matched `SubagentStart` hooks (Plan 01),
