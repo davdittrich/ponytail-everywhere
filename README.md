@@ -113,10 +113,27 @@ absent contributions inject nothing.
 **Migrating from the interim bridge (< 0.7.0):** drop the
 `.gsd/capabilities/ponytail/skills/quick-planner` entry from your project's
 `.planning/config.json` `agent_skills.gsd-planner` array — keep every other
-entry in its existing order — then re-run
-`gsd-tools capability install /path/to/ponytail-everywhere/.gsd/capabilities/ponytail --scope project --yes`
-to pick up `engines.gsd` `>=1.13.0`. Projects running gsd-core `<1.13.0`
-must upgrade first; the capability no longer declares a fallback delivery path.
+entry in its existing order.
+
+- **Plugin users** (installed via `claude plugin install` / `codex plugin add`):
+  no further action — the `SessionStart` hook re-installs the capability at
+  global scope on the next session and picks up `engines.gsd` `>=1.13.0`
+  automatically.
+- **Direct project-scope capability installs** (`gsd-tools capability install
+  ... --scope project`, outside the plugin flow): re-run
+  `gsd-tools capability install /path/to/ponytail-everywhere/.gsd/capabilities/ponytail --scope project --yes`
+  to refresh the stale pre-0.7.0 consent hash and pick up the new floor.
+
+Either way, projects running gsd-core `<1.13.0` must upgrade gsd-core first.
+`engines.gsd` is enforced at install time: on an incompatible host, capability
+install fails outright, invalidating the consent record and deactivating
+**every** `capability.json` contribution — the planner ladder at `plan:pre`,
+the declarative checker fragment, and the undelivered execute-point
+declarations — not only Quick-mode planner delivery, until gsd-core is
+upgraded. The `SessionStart`/`SubagentStart` ladder banners are unaffected:
+they read `ponytail.enabled`/`ponytail.level` directly from project config
+and do not depend on capability install succeeding. The capability no longer
+declares a fallback delivery path for pre-1.13.0 hosts.
 
 The active planner contribution applies the same scope rule in standard and Quick planning: historical context may guide discovery but cannot authorize concrete mutable targets without a current task-relevant observation. Explicit user-fixed and immutable scope stays concrete; unobserved mutable scope stays conditional and observes first; drift-prone plan-time evidence uses one concrete read-only task-local `<precondition>` immediately before mutation. Facts produced by the task and ordering already expressed by `depends_on` do not gain redundant preconditions.
 
