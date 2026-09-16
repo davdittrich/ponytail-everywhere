@@ -161,4 +161,40 @@ assert_planner_dispatch_in_quick_step5() {
 assert_planner_dispatch_in_quick_step5
 pass "quick workflow's planner-spawn step selects into==\"planner\" and forwards fragment.inline plus configValues"
 
+# CodeRabbit (#9): prove the contribution reaches both `/gsd-quick` and
+# `/gsd-quick --full` exactly once, not that it merely exists somewhere.
+# quick.md spawns the planner from a single shared `Agent(...)` template
+# gated by one `${VALIDATE_MODE ? ... : ...}` ternary for mode text, not two
+# separate templates — so "exactly once" is a single-occurrence count of the
+# injection block and its one planner Agent() call, which serves standard,
+# validate, and full modes alike.
+INJECTION_BLOCK='For each active entry in `PLAN_PRE_HOOKS_JSON`'
+[ "$(grep -Fc "$INJECTION_BLOCK" "$QUICK_WORKFLOW")" = 1 ] \
+  || fail "expected exactly one plan:pre injection block in quick.md, shared across standard/validate/full modes; a duplicate or a mode-specific split would risk double or missing injection"
+[ "$(grep -Fc 'Spawn planner (quick mode)' "$QUICK_WORKFLOW")" = 1 ] \
+  || fail "expected exactly one planner-spawn step in quick.md"
+pass "the plan:pre injection block and planner spawn each occur exactly once, serving /gsd-quick and /gsd-quick --full through the same template"
+
+# CodeRabbit (#9): runtime-incompatible capability resolution must inject
+# nothing. Install refuses at the engines.gsd gate before any hook can
+# register, so assert install failure — not merely an empty render — using
+# an engines.gsd floor no real host can satisfy, independent of whichever
+# gsd-core version this run happens to target.
+INCOMPATIBLE_SOURCE="$SCRATCH/incompatible-source"
+cp -r "$CAPABILITY_SOURCE" "$INCOMPATIBLE_SOURCE"
+jq '.engines.gsd = ">=999.0.0"' "$INCOMPATIBLE_SOURCE/capability.json" > "$INCOMPATIBLE_SOURCE/capability.json.tmp"
+mv "$INCOMPATIBLE_SOURCE/capability.json.tmp" "$INCOMPATIBLE_SOURCE/capability.json"
+
+PROJECT="$SCRATCH/project-incompatible"
+GSD_HOME_DIR="$SCRATCH/gsd-home-incompatible"
+mkdir -p "$PROJECT/.planning" "$GSD_HOME_DIR"
+git -C "$PROJECT" init -q
+write_config true full
+if GSD_HOME="$GSD_HOME_DIR" gsd_tools capability install "$INCOMPATIBLE_SOURCE" \
+    --scope project --yes --cwd "$PROJECT" --raw >/dev/null 2>&1; then
+  fail "capability install succeeded despite an engines.gsd floor no host can satisfy"
+fi
+[ "$(count_planner_hooks)" = 0 ] || fail "runtime-incompatible capability resolution still injected a planner contribution"
+pass "runtime-incompatible capability resolution refuses install and injects nothing"
+
 printf '%s\n' 'ALL PASS'
