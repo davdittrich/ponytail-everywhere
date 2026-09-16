@@ -1,7 +1,7 @@
 {
   "name": "ponytail-everywhere",
-  "version": "0.6.0",
-  "description": "Lazy-ladder discipline, Quick planner delivery, and proportionality checks across gsd's lifecycle",
+  "version": "0.7.0",
+  "description": "Lazy-ladder discipline, native Quick planner dispatch, and proportionality checks across gsd's lifecycle",
   "author": {
     "name": "Dennis A. V. Dittrich",
     "email": "davdittrich@gmail.com"

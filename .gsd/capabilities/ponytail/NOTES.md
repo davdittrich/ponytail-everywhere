@@ -22,20 +22,21 @@ violated.
 
 ## Functional today
 
-`plan:pre` → `into: "planner"` is the sole `kind == "contribution"` injection loop that exists
-anywhere in the shipped gsd-core workflow markdown (`plan-phase.md`). When `ponytail.enabled`
-resolves true, `fragments/planner-ladder.md` is read and injected verbatim into the `gsd-planner`
-subagent's own prompt, along with the resolved `ponytail.level` value via `configValues`.
+`plan:pre` → `into: "planner"` is the only `kind == "contribution"` injection loop with a landing
+site in shipped gsd-core workflow markdown — `plan-phase.md`, and, as of v1.13.0, `quick.md`
+Step 5. When `ponytail.enabled` resolves true, `fragments/planner-ladder.md` is read and injected
+verbatim into the `gsd-planner` subagent's own prompt, along with the resolved `ponytail.level`
+value via `configValues`.
 
-Quick planning uses the same contribution through the project-scoped
-`skills/quick-planner` bridge when that path is appended to
-`agent_skills.gsd-planner`. The bridge asks `render-hooks plan:pre` for the
-resolved registry and emits only Ponytail's active planner fragment. It copies
-no ladder text and applies equally to standard, validate, and full Quick modes.
-This bridge remains downstream-only until open-gsd/gsd-core#3778 ships; #5
-tracks its removal in favor of native Quick dispatch.
+Quick planning dispatches the same contribution natively as of gsd-core
+v1.13.0 (commit `b848b23`, open-gsd/gsd-core#3934 closing #3778): `quick.md`
+Step 5 reads `render-hooks plan:pre --raw` and injects each active
+`into == "planner"` fragment verbatim into the Quick planner prompt, applying
+equally to standard, validate, and full Quick modes. The interim
+project-scoped `skills/quick-planner` bridge (#2) was removed in #5 once this
+landed; `engines.gsd` now gates on `>=1.13.0` accordingly.
 
-Both standard and bridged Quick planner delivery use the same current-evidence rule: historical context may guide discovery but cannot authorize concrete mutable targets without a current task-relevant observation. Explicit user-fixed and immutable scope stays concrete; unobserved mutable scope stays conditional and observes first; drift-prone plan-time evidence uses one concrete read-only task-local `<precondition>` immediately before mutation. Facts produced by the task and ordering already expressed by `depends_on` do not gain redundant preconditions.
+Both standard and Quick planner delivery use the same current-evidence rule: historical context may guide discovery but cannot authorize concrete mutable targets without a current task-relevant observation. Explicit user-fixed and immutable scope stays concrete; unobserved mutable scope stays conditional and observes first; drift-prone plan-time evidence uses one concrete read-only task-local `<precondition>` immediately before mutation. Facts produced by the task and ordering already expressed by `depends_on` do not gain redundant preconditions.
 
 ## Plan-review checker declaration
 
@@ -85,9 +86,9 @@ Tracked upstream as open-gsd/gsd-core#4350. Related: open-gsd/gsd-core#3997 asks
 site in external reviewer prompts, and asserts in its own body that Ponytail already reaches the
 executor and verifier roles — this section is the evidence that it does not.
 
-`engines.gsd` stays `>=1.10.0`. Raising it to `>=1.12.0` would gate the whole capability — including
-the `plan:pre` planner contribution, which works on 1.10.0 and 1.11.0 — on a release that delivers
-nothing extra to these two entries. Raise it when a landing site makes them functional.
+`engines.gsd` is `>=1.13.0`, raised in #5 for native Quick `plan:pre` dispatch — unrelated to these
+two undelivered execute entries, which gain nothing from that floor. Raise it again, separately,
+only when a landing site makes them functional.
 
 `gsd_run loop render-hooks verify:pre --raw` returns zero `ponytail` entries, and always will under
 this design — `verify:pre`'s only legal `contribution.into` value is `"orchestrator"` (see the Point

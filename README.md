@@ -8,7 +8,7 @@ Lazy-ladder discipline and proportionality checks across gsd's plan/execute/veri
 installable overlay, not a fork — that injects advisory lazy-ladder discipline (YAGNI, reuse
 before writing, stdlib/native before dependencies, shortest working diff) into the planner at
 `plan:pre`. It declares the same discipline for the executor at `execute:wave:pre` and the verifier
-at `execute:wave:post`, but those two fragments reach neither target agent on gsd-core 1.12.0: the
+at `execute:wave:post`, but those two fragments reach neither target agent on gsd-core 1.13.0: the
 execute workflow dispatches contributions without a landing site for either role, so the
 orchestrator has nowhere to route them (open-gsd/gsd-core#4350). It also prints the same ladder banner on
 Claude Code's `SessionStart` and on
@@ -82,7 +82,7 @@ this interception from this repository.
 ## Requirements
 
 - Bash (POSIX shell)
-- gsd-core >= 1.10.0
+- gsd-core >= 1.13.0
 
 ## Install
 
@@ -99,41 +99,43 @@ codex plugin add ponytail-everywhere@gsd-beads --json
 The marketplace stays hosted at `davdittrich/gsd-beads` even though this plugin lives in its own
 repo — the marketplace entry just points here.
 
-### Quick planner bridge
+### Quick planner dispatch
 
-GSD Quick does not yet dispatch `plan:pre` planner contributions. Install the
-Ponytail capability into each GSD project that needs runtime-neutral Quick
-delivery, then append its project-relative bridge to that project's
-`.planning/config.json`:
+`/gsd-quick`, `/gsd-quick --validate`, and `/gsd-quick --full` dispatch the
+capability's `plan:pre` -> `planner` contribution natively as of gsd-core
+[v1.13.0](https://github.com/open-gsd/gsd-core/releases/tag/v1.13.0)
+(commit `b848b23`, [open-gsd/gsd-core#3934](https://github.com/open-gsd/gsd-core/pull/3934)
+closing [open-gsd/gsd-core#3778](https://github.com/open-gsd/gsd-core/issues/3778)).
+No per-project wiring is required beyond installing the capability and
+`ponytail.enabled` (default `true`); disabled, runtime-incompatible, or
+absent contributions inject nothing.
 
-```bash
-gsd-tools capability install /path/to/ponytail-everywhere/.gsd/capabilities/ponytail \
-  --scope project --yes
-```
+**Migrating from the interim bridge (< 0.7.0):** drop the
+`.gsd/capabilities/ponytail/skills/quick-planner` entry from your project's
+`.planning/config.json` `agent_skills.gsd-planner` array — keep every other
+entry in its existing order.
 
-```json
-{
-  "agent_skills": {
-    "gsd-planner": [
-      "existing/planner-skill",
-      ".gsd/capabilities/ponytail/skills/quick-planner"
-    ]
-  }
-}
-```
+- **Plugin users** (installed via `claude plugin install` / `codex plugin add`):
+  no further action — the `SessionStart` hook re-installs the capability at
+  global scope on the next session and picks up `engines.gsd` `>=1.13.0`
+  automatically.
+- **Direct project-scope capability installs** (`gsd-tools capability install
+  ... --scope project`, outside the plugin flow): re-run
+  `gsd-tools capability install /path/to/ponytail-everywhere/.gsd/capabilities/ponytail --scope project --yes`
+  to refresh the stale pre-0.7.0 consent hash and pick up the new floor.
 
-Keep every existing `gsd-planner` entry in its current order and append the
-bridge once. Configuration is intentionally per-project: a project with its own
-`.planning/config.json` does not inherit `agent_skills` from user defaults.
-The bridge covers `/gsd-quick`, `/gsd-quick --validate`, and `/gsd-quick --full`;
-it resolves the active Ponytail `plan:pre` contribution, so disabled,
-runtime-incompatible, and absent contributions remain silent and
-`ponytail.level` uses the same fragment as normal phase planning. Native Quick
-dispatch will replace this bridge after
-[open-gsd/gsd-core#3778](https://github.com/open-gsd/gsd-core/issues/3778) ships,
-tracked by [#5](https://github.com/davdittrich/ponytail-everywhere/issues/5).
+Either way, projects running gsd-core `<1.13.0` must upgrade gsd-core first.
+`engines.gsd` is enforced at install time: on an incompatible host, capability
+install fails outright, invalidating the consent record and deactivating
+**every** `capability.json` contribution — the planner ladder at `plan:pre`,
+the declarative checker fragment, and the undelivered execute-point
+declarations — not only Quick-mode planner delivery, until gsd-core is
+upgraded. The `SessionStart`/`SubagentStart` ladder banners are unaffected:
+they read `ponytail.enabled`/`ponytail.level` directly from project config
+and do not depend on capability install succeeding. The capability no longer
+declares a fallback delivery path for pre-1.13.0 hosts.
 
-The active planner contribution applies the same scope rule in standard planning and bridged Quick planning: historical context may guide discovery but cannot authorize concrete mutable targets without a current task-relevant observation. Explicit user-fixed and immutable scope stays concrete; unobserved mutable scope stays conditional and observes first; drift-prone plan-time evidence uses one concrete read-only task-local `<precondition>` immediately before mutation. Facts produced by the task and ordering already expressed by `depends_on` do not gain redundant preconditions.
+The active planner contribution applies the same scope rule in standard and Quick planning: historical context may guide discovery but cannot authorize concrete mutable targets without a current task-relevant observation. Explicit user-fixed and immutable scope stays concrete; unobserved mutable scope stays conditional and observes first; drift-prone plan-time evidence uses one concrete read-only task-local `<precondition>` immediately before mutation. Facts produced by the task and ordering already expressed by `depends_on` do not gain redundant preconditions.
 
 ### Plan-review proportionality
 

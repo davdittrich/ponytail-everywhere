@@ -1,13 +1,13 @@
 {
   "id": "ponytail",
   "role": "feature",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "title": "Ponytail lazy-ladder discipline",
   "description": "Lazy-ladder reminders plus Claude Code command-expansion proportionality checks.",
   "tier": "full",
   "requires": [],
   "engines": {
-    "gsd": ">=1.10.0"
+    "gsd": ">=1.13.0"
   },
   "runtimeCompat": {
     "supported": [
@@ -15,9 +15,7 @@
     ],
     "unsupported": []
   },
-  "skills": [
-    "quick-planner"
-  ],
+  "skills": [],
   "agents": [],
   "hooks": [],
   "config": {
