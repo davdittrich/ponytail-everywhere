@@ -44,10 +44,10 @@ esac
 
 # Upstream ponytail (DietrichGebert/ponytail) already injects the ladder while its mode flag
 # exists; the same flag path its runtime reads, per project when CLAUDE_PROJECT_DIR is set.
-UPSTREAM_FLAG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.ponytail-active"
+UPSTREAM_FLAG="${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/.ponytail-active"
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
   PROJECT_KEY="$(node -p 'require("crypto").createHash("sha256").update(require("path").normalize(process.argv[1])).digest("hex")' "$CLAUDE_PROJECT_DIR" 2>/dev/null)"
-  UPSTREAM_FLAG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/ponytail-modes/$PROJECT_KEY"
+  UPSTREAM_FLAG="${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/ponytail-modes/$PROJECT_KEY"
 fi
 UPSTREAM=false
 if [ -n "${PROJECT_KEY-x}" ] && [ -f "$UPSTREAM_FLAG" ]; then

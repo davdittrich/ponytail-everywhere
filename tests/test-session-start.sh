@@ -248,5 +248,14 @@ grep -Fq 'keep their severity' "$FRAG/verifier-ladder.md" || fail "case16: verif
 grep -rEq 'Never simplify|/home/dd' "$FRAG" "$REPO_ROOT/tests" "$REPO_ROOT/hooks" --exclude=test-session-start.sh && fail "case16: stale wording or hardcoded home path remains"
 pass "case16: fragments match banner rules"
 
+# --- Case 17: HOME and CLAUDE_CONFIG_DIR unset under set -u -> no unbound-variable abort (gh-12) ---
+for PROJ in "" "$PLUGIN_DIR"; do # "" -> line 47 flag path; set -> line 50 per-project path
+  ENV_ERR="$(env -u HOME -u CLAUDE_CONFIG_DIR CLAUDE_PROJECT_DIR="$PROJ" CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT" executor 2>&1 >/dev/null)"
+  STATUS=$?
+  [ "$STATUS" -eq 0 ] || fail "case17: HOME-unset run (project='$PROJ') exited $STATUS: $ENV_ERR"
+  echo "$ENV_ERR" | grep -q 'unbound variable' && fail "case17: HOME-unset run (project='$PROJ') hit unbound variable: $ENV_ERR"
+done
+pass "case17: HOME and CLAUDE_CONFIG_DIR unset, no abort with or without CLAUDE_PROJECT_DIR"
+
 echo "ALL PASS"
 exit 0
