@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Vendored auto-install hook (D-05: vendored copy per plugin, not shared at
-# runtime -- see hooks/capability-auto-install.sh in the sota-numerics repo
-# for the byte-identical sibling copy, Phase 10.1 Plan 02).
+# runtime). Derived from the sota-numerics copy, which keeps its bundle under
+# .gsd/capabilities/<id>; here the bundle files sit at the plugin root so that
+# `gsd capability install <git url>` also works (URL import reads
+# capability.json at the repo root). Only the bundle files are hashed and
+# staged, never the rest of the checkout (.git, hooks, tests, symlinks).
 #
 # Detects bundle drift via a whole-directory hash and re-grants the
 # capability at global ("user") scope on every SessionStart (D-01..D-03).
@@ -16,8 +19,9 @@ CAP_ID="${1:-}"
 [[ "$CAP_ID" =~ ^[a-z][a-z0-9-]*$ ]] || exit 0
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-BUNDLE_DIR="$PLUGIN_ROOT/.gsd/capabilities/$CAP_ID"
-[ -d "$BUNDLE_DIR" ] || exit 0
+BUNDLE_SRC="$PLUGIN_ROOT"
+[ -f "$BUNDLE_SRC/capability.json" ] || exit 0
+BUNDLE_FILES=(capability.json fragments NOTES.md)
 
 # Portable hash tool selection (Assumption A3: macOS ships no sha256sum).
 if command -v sha256sum >/dev/null 2>&1; then
@@ -28,14 +32,13 @@ else
   exit 0
 fi
 
-# Whole-bundle-directory hash (D-03): LC_ALL=C-sorted list of every path
-# under the bundle (files AND directories, so an added empty directory is
-# caught -- Assumption A1) followed by the concatenated contents of the
-# sorted regular files.
+# Bundle hash (D-03): LC_ALL=C-sorted list of every path under the bundle files
+# (files AND directories, so an added empty directory is caught -- Assumption A1)
+# followed by the concatenated contents of the sorted regular files.
 bundle_hash() {
   {
-    find "$BUNDLE_DIR" \( -type f -o -type d \) | LC_ALL=C sort
-    find "$BUNDLE_DIR" -type f | LC_ALL=C sort | while IFS= read -r _f; do cat "$_f"; done
+    (cd "$BUNDLE_SRC" && find "${BUNDLE_FILES[@]}" \( -type f -o -type d \) 2>/dev/null) | LC_ALL=C sort
+    (cd "$BUNDLE_SRC" && find "${BUNDLE_FILES[@]}" -type f 2>/dev/null) | LC_ALL=C sort | while IFS= read -r _f; do cat "$BUNDLE_SRC/$_f"; done
   } | "${HASH_CMD[@]}" | awk '{print $1}'
 }
 
@@ -73,6 +76,11 @@ gsd_tools() {
   [ "${#_GSD_TOOLS_ARGS[@]}" -gt 0 ] || return 127
   "${_GSD_TOOLS_ARGS[@]}" "$@"
 }
+
+# Stage the bundle files into a persistent clean directory; gsd-core records the
+# install source, so it must outlive this run.
+BUNDLE_DIR="${GSD_HOME:-$HOME}/.gsd/capability-bundle-$CAP_ID"
+rm -rf "$BUNDLE_DIR" && mkdir -p "$BUNDLE_DIR" && (cd "$BUNDLE_SRC" && cp -RL "${BUNDLE_FILES[@]}" "$BUNDLE_DIR"/) 2>/dev/null
 
 # Spec is always the absolute bundle dir (Pattern 2) -- a relative spec would
 # resolve against the end user's cwd, not the plugin. Prose "user scope"

@@ -8,7 +8,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CAPABILITY_SOURCE="$REPO_ROOT/.gsd/capabilities/ponytail"
+CAPABILITY_SOURCE="$REPO_ROOT"
 MANIFEST="$CAPABILITY_SOURCE/capability.json"
 FRAGMENT="$CAPABILITY_SOURCE/fragments/planner-ladder.md"
 SCRATCH="$(mktemp -d)"
@@ -62,8 +62,8 @@ jq -e '
 ' "$MANIFEST" >/dev/null || fail "plan:pre -> planner contribution contract differs, engines.gsd floor regressed, or the interim bridge skill returned"
 pass "planner contribution declares fragment, gate, and level configValue; engines.gsd floor and skills list are current"
 
-jq -e '.version == "0.8.0"' "$MANIFEST" >/dev/null || fail "capability version is not 0.8.0"
-jq -e '.version == "0.8.0"' "$REPO_ROOT/.claude-plugin/plugin.json" >/dev/null || fail "plugin version is not 0.8.0"
+jq -e '.version == "0.9.0"' "$MANIFEST" >/dev/null || fail "capability version is not 0.9.0"
+jq -e '.version == "0.9.0"' "$REPO_ROOT/.claude-plugin/plugin.json" >/dev/null || fail "plugin version is not 0.9.0"
 grep -Fq 'test-quick-planner-dispatch.sh' "$REPO_ROOT/.github/workflows/ci.yml" \
   || fail "CI does not run this dispatch reach test"
 pass "capability/plugin versions and CI wiring are current"

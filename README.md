@@ -127,8 +127,13 @@ No per-project wiring is required beyond installing the capability and
 `ponytail.enabled` (default `true`); disabled, runtime-incompatible, or
 absent contributions inject nothing.
 
+**Migrating to 0.9.0 (bundle at the repo root):** `capability.json` and `fragments/` moved from
+`.gsd/capabilities/ponytail/` to the repository root so `gsd capability install <git url>` works.
+Plugin users re-grant automatically at the next `SessionStart`. A project-scope consent recorded
+for the old path goes stale: re-run `gsd-tools capability install /path/to/ponytail-everywhere --scope project --yes`.
+
 **Migrating from the interim bridge (< 0.7.0):** drop the
-`.gsd/capabilities/ponytail/skills/quick-planner` entry from your project's
+`skills/quick-planner` entry from your project's
 `.planning/config.json` `agent_skills.gsd-planner` array — keep every other
 entry in its existing order.
 
@@ -138,7 +143,7 @@ entry in its existing order.
   automatically.
 - **Direct project-scope capability installs** (`gsd-tools capability install
   ... --scope project`, outside the plugin flow): re-run
-  `gsd-tools capability install /path/to/ponytail-everywhere/.gsd/capabilities/ponytail --scope project --yes`
+  `gsd-tools capability install /path/to/ponytail-everywhere --scope project --yes`
   to refresh the stale pre-0.7.0 consent hash and pick up the new floor.
 
 Either way, projects running gsd-core `<1.13.0` must upgrade gsd-core first.
@@ -158,7 +163,7 @@ The active planner contribution applies the same scope rule in standard and Quic
 
 The capability also declares one schema-valid `plan:pre` contribution for the `checker` role. It asks plan review to prove only genuinely distinct behavior: compare identical mechanism bytes statically, execute one representative for identical argv and control flow, and execute once per distinct argv or control path. `ponytail.enforcement` maps to checker `info` (`advisory`), `warning` (`warn`), or `blocker` (`block`) findings; each finding names the violated property and evidence, while any `fix_hint` is non-binding.
 
-This declaration does not currently inject into automatic checker runs because gsd-core has no generic checker-contribution dispatcher. [open-gsd/gsd-core#3771](https://github.com/open-gsd/gsd-core/issues/3771) addresses non-binding remediation revision conflicts, not checker-contribution dispatch. After any capability-bundle edit, re-consent with `gsd-tools capability install /path/to/ponytail-everywhere/.gsd/capabilities/ponytail --scope project --yes`; project-scope consent hashes the entire bundle.
+This declaration does not currently inject into automatic checker runs because gsd-core has no generic checker-contribution dispatcher. [open-gsd/gsd-core#3771](https://github.com/open-gsd/gsd-core/issues/3771) addresses non-binding remediation revision conflicts, not checker-contribution dispatch. After any capability-bundle edit, re-consent (project-scope consent hashes the whole source directory, `.git` included, so install from a clean export) with `gsd-tools capability install /path/to/ponytail-everywhere --scope project --yes`; project-scope consent hashes the entire bundle.
 
 ## Uninstall
 

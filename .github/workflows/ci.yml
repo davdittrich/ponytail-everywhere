@@ -34,6 +34,9 @@ jobs:
       - name: execute-point contribution reach test
         run: bash tests/test-execute-contributions.sh
 
+      - name: root-layout install test
+        run: bash tests/test-root-capability.sh
+
       - name: session-start smoke test
         run: bash tests/test-session-start.sh
 

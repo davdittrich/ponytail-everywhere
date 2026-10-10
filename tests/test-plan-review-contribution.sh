@@ -3,7 +3,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CAPABILITY_SOURCE="$REPO_ROOT/.gsd/capabilities/ponytail"
+CAPABILITY_SOURCE="$REPO_ROOT"
 MANIFEST="$CAPABILITY_SOURCE/capability.json"
 FRAGMENT="$CAPABILITY_SOURCE/fragments/checker-proportionality.md"
 SCRATCH="$(mktemp -d)"
@@ -30,7 +30,7 @@ gsd_tools() {
 
 assert_static_contract() {
   jq -e '
-    .version == "0.8.0" and
+    .version == "0.9.0" and
     (.config["ponytail.enforcement"].description | contains("Claude Code command-expansion decisions") and contains("plan-review checker severity outcomes")) and
     ([.contributions[] | select(
       .point == "plan:pre" and .into == "checker" and
@@ -142,8 +142,8 @@ SPY_LOG="$SPY_LOG" "$SCRATCH/resolver-copy.sh" check --mode full
   || fail "distinct argv tails were not each executed once in order"
 pass "distinct argv behavior executes once per tail"
 
-jq -e '.version == "0.8.0"' "$REPO_ROOT/.claude-plugin/plugin.json" >/dev/null \
-  || fail "plugin version is not 0.8.0"
+jq -e '.version == "0.9.0"' "$REPO_ROOT/.claude-plugin/plugin.json" >/dev/null \
+  || fail "plugin version is not 0.9.0"
 grep -Fq 'test-plan-review-contribution.sh' "$REPO_ROOT/.github/workflows/ci.yml" \
   || fail "CI does not run focused contribution test"
 grep -Fq 'open-gsd/gsd-core#3771' "$REPO_ROOT/README.md" \

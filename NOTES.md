@@ -120,13 +120,13 @@ Testing the `ponytail.enabled` toggle against such a mirror therefore requires g
 *separate* consent record for the mirror's own realpath — done here via the `GSD_HOME` env var
 (an existing, already-documented gsd-tools override, not new infrastructure), pointed at a second
 `mktemp -d` scratch directory so the record never touches the real `$HOME/.claude` consent store:
-`GSD_HOME=<scratch> gsd_tools capability install ./.gsd/capabilities/ponytail --scope project
+`GSD_HOME=<scratch> gsd_tools capability install . --scope project
 --yes --cwd <mirror>`, then `GSD_HOME=<scratch> gsd_tools loop render-hooks ... --cwd <mirror>`
 for both the baseline and `ponytail.enabled: false` checks. Both scratch directories are removed
 on exit; nothing under `$HOME/.claude` or this repo's `.planning/config.json` is touched.
 
 ## Re-consent after any edit
 
-Project-scope consent (`capability install ./.gsd/capabilities/ponytail --scope project --yes`) is a
-whole-bundle content hash over every file under `.gsd/capabilities/ponytail/`. Editing any file here
+Project-scope consent (`capability install . --scope project --yes`) is a
+whole-bundle content hash over every file under the repository root. Editing any file here
 — including this one — silently deactivates the capability until `capability install` is re-run.

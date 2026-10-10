@@ -116,8 +116,8 @@ grep -Fq 'unhandled edge cases' "$README" || fail "case7a: README required findi
 grep -Fq 'evidence-backed performance' "$README" || fail "case7a: README suggestion classes missing"
 grep -Fq 'When evidenced, required findings' "$README" || fail "case7a: README evidence condition missing"
 grep -Fq 'source/document divergence' "$README" || fail "case7a: README source/document divergence missing"
-jq -e '.version == "0.8.0"' "$REPO_ROOT/.claude-plugin/plugin.json" >/dev/null || fail "case7a: plugin version is not 0.8.0"
-jq -e '.version == "0.8.0"' "$REPO_ROOT/.gsd/capabilities/ponytail/capability.json" >/dev/null || fail "case7a: capability version is not 0.8.0"
+jq -e '.version == "0.9.0"' "$REPO_ROOT/.claude-plugin/plugin.json" >/dev/null || fail "case7a: plugin version is not 0.9.0"
+jq -e '.version == "0.9.0"' "$REPO_ROOT/capability.json" >/dev/null || fail "case7a: capability version is not 0.9.0"
 pass "case7a: reviewer/verifier routing, README, and version contracts"
 
 # --- Case 8: no argument -> generic framing, none of the three role lines ---
@@ -228,7 +228,7 @@ run_and_cleanup
 pass "case15: touch-point, floors, shortcut and house-component rules"
 
 # --- Case 16: fragments carry the same rules as the banner (they reach agents through gsd dispatch) ---
-FRAG="$REPO_ROOT/.gsd/capabilities/ponytail/fragments"
+FRAG="$REPO_ROOT/fragments"
 for f in planner executor verifier; do
   grep -Fq 'Floors, always kept:' "$FRAG/$f-ladder.md" || fail "case16: $f fragment missing floors line"
   grep -Fq 'Moved or merged code keeps its error handling and validation' "$FRAG/$f-ladder.md" || fail "case16: $f fragment missing moved-code floor"

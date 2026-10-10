@@ -10,7 +10,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CAPABILITY_SOURCE="$REPO_ROOT/.gsd/capabilities/ponytail"
+CAPABILITY_SOURCE="$REPO_ROOT"
 MANIFEST="$CAPABILITY_SOURCE/capability.json"
 SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
