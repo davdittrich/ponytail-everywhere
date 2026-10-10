@@ -62,8 +62,8 @@ jq -e '
 ' "$MANIFEST" >/dev/null || fail "plan:pre -> planner contribution contract differs, engines.gsd floor regressed, or the interim bridge skill returned"
 pass "planner contribution declares fragment, gate, and level configValue; engines.gsd floor and skills list are current"
 
-jq -e '.version == "0.9.1"' "$MANIFEST" >/dev/null || fail "capability version is not 0.9.1"
-jq -e '.version == "0.9.1"' "$REPO_ROOT/.claude-plugin/plugin.json" >/dev/null || fail "plugin version is not 0.9.1"
+jq -e '.version == "0.9.2"' "$MANIFEST" >/dev/null || fail "capability version is not 0.9.2"
+jq -e '.version == "0.9.2"' "$REPO_ROOT/.claude-plugin/plugin.json" >/dev/null || fail "plugin version is not 0.9.2"
 grep -Fq 'test-quick-planner-dispatch.sh' "$REPO_ROOT/.github/workflows/ci.yml" \
   || fail "CI does not run this dispatch reach test"
 pass "capability/plugin versions and CI wiring are current"
