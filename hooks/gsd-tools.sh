@@ -7,8 +7,8 @@ gsd_tools() {
       _GSD_TOOLS_ARGS=(node "$_root/gsd-core/bin/gsd-tools.cjs")
     elif command -v gsd-tools >/dev/null 2>&1; then
       _GSD_TOOLS_ARGS=(gsd-tools)
-    elif [ -f "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/gsd-core/bin/gsd-tools.cjs" ]; then
-      _GSD_TOOLS_ARGS=(node "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/gsd-core/bin/gsd-tools.cjs")
+    elif [ -f "${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/gsd-core/bin/gsd-tools.cjs" ]; then
+      _GSD_TOOLS_ARGS=(node "${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/gsd-core/bin/gsd-tools.cjs")
     else
       _GSD_TOOLS_ARGS=()
     fi
