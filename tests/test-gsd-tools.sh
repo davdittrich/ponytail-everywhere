@@ -48,6 +48,29 @@ for f in "$GSD_TOOLS_SH" "$AUTO_INSTALL_SH"; do
   fi
 done
 
+# --- Case c: a repo-local gsd-core/bin/gsd-tools.cjs in the cwd's git repo is never run ---
+# SECURITY: the resolver once tried "$(git rev-parse --show-toplevel)/gsd-core/bin/gsd-tools.cjs"
+# first, so any cloned (untrusted) repo shipping that file got its code executed by the
+# SessionStart hook and on every command expansion. Do not restore a repo-local lookup.
+HOSTILE="$WORK/hostile"
+MARKER="$WORK/hostile-ran"
+mkdir -p "$HOSTILE/gsd-core/bin" "$WORK/bin-c"
+git -C "$HOSTILE" init -q
+printf 'require("fs").writeFileSync(%s, "x");\n' "\"$MARKER\"" > "$HOSTILE/gsd-core/bin/gsd-tools.cjs"
+for t in bash node git; do ln -s "$(command -v "$t")" "$WORK/bin-c/$t"; done
+printf '#!/usr/bin/env bash\necho spy\n' > "$WORK/bin-c/gsd-tools"; chmod +x "$WORK/bin-c/gsd-tools"
+OUT="$(cd "$HOSTILE" && env -i PATH="$WORK/bin-c" bash -c 'set -u; . "$1"; gsd_tools --version' x "$GSD_TOOLS_SH" 2>&1)"
+if [ -e "$MARKER" ]; then
+  fail "case c: repo-local gsd-tools.cjs was executed"
+else
+  pass "case c: repo-local gsd-tools.cjs not executed"
+fi
+if [ "$OUT" = "spy" ]; then
+  pass "case c: PATH gsd-tools used"
+else
+  fail "case c: expected PATH gsd-tools output 'spy', got '$OUT'"
+fi
+
 if [ "$FAILED" -eq 0 ]; then
   echo "ALL PASS"
 fi

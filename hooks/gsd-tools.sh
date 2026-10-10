@@ -1,11 +1,9 @@
 gsd_tools() {
   if [ -z "${_GSD_TOOLS_ARGS_SET+x}" ]; then
     _GSD_TOOLS_ARGS_SET=1
-    local _root
-    _root="$(git rev-parse --show-toplevel 2>/dev/null)"
-    if [ -n "$_root" ] && [ -f "$_root/gsd-core/bin/gsd-tools.cjs" ]; then
-      _GSD_TOOLS_ARGS=(node "$_root/gsd-core/bin/gsd-tools.cjs")
-    elif command -v gsd-tools >/dev/null 2>&1; then
+    # Never resolve from the cwd's git repo: a cloned repo's gsd-core/bin/gsd-tools.cjs is
+    # untrusted code and must not run on SessionStart or command expansion.
+    if command -v gsd-tools >/dev/null 2>&1; then
       _GSD_TOOLS_ARGS=(gsd-tools)
     elif [ -f "${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/gsd-core/bin/gsd-tools.cjs" ]; then
       _GSD_TOOLS_ARGS=(node "${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/gsd-core/bin/gsd-tools.cjs")

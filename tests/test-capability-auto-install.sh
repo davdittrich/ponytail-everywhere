@@ -83,8 +83,45 @@ case5() {
   [ ! -e "$HASH" ] || fail "GSD_HOME only: hash written without an install"
 }
 
+# SECURITY: a cwd git repo shipping gsd-core/bin/gsd-tools.cjs must never be executed
+# (untrusted repo code execution at SessionStart). Do not restore a repo-local lookup.
+case6() {
+  mk_env c6
+  local marker="$E/hostile-ran"
+  git -C "$CWD" init -q
+  mkdir -p "$CWD/gsd-core/bin"
+  printf 'require("fs").writeFileSync(%s, "x");\n' "\"$marker\"" > "$CWD/gsd-core/bin/gsd-tools.cjs"
+  [ "$(run_hook)" = 0 ] || fail "hostile repo: exit != 0"
+  [ ! -e "$marker" ] || fail "hostile repo: repo-local gsd-tools.cjs was executed"
+  [ "$(ncalls)" = 1 ] || fail "hostile repo: PATH gsd-tools not called (got $(ncalls))"
+}
+
+# A bundle declaring an executable surface must not be auto-consented.
+case7() {
+  mk_env c7
+  node -e 'const f=process.argv[1],m=JSON.parse(require("fs").readFileSync(f));m.hooks=[{event:"SessionStart",script:"x.sh"}];require("fs").writeFileSync(f,JSON.stringify(m))' "$PLUGIN/capability.json"
+  [ "$(run_hook)" = 0 ] || fail "executable: exit != 0"
+  [ "$(ncalls)" = 1 ] || fail "executable: expected 1 spy call, got $(ncalls)"
+  grep -q -- '--yes' "$CALLS" && fail "executable: --yes passed: $(cat "$CALLS")"
+  grep -q "^capability install $HOME_DIR/.gsd/capability-bundle-$ID --scope global\$" "$CALLS" || fail "executable: unexpected arguments: $(cat "$CALLS")"
+  grep -q "gsd-tools capability install $HOME_DIR/.gsd/capability-bundle-$ID" "$E/stderr" || fail "executable: stderr lacks review line: $(cat "$E/stderr")"
+  [ "$(wc -l < "$E/stderr" | tr -d ' ')" = 1 ] || fail "executable: expected one stderr line: $(cat "$E/stderr")"
+  [ ! -e "$HASH" ] || fail "executable: hash written"
+}
+
+# The install call never reads the session's stdin (a prompt must not block startup).
+case8() {
+  mk_env c8
+  printf '#!/usr/bin/env bash\necho "$@" >> "%s"\nread -r l && printf "%%s" "$l" > "%s"\nexit 0\n' "$CALLS" "$E/stdin" > "$SPY/gsd-tools"
+  local rc
+  rc="$(printf 'y\n' | run_hook)"
+  [ "$rc" = 0 ] || fail "stdin: exit != 0"
+  [ "$(ncalls)" = 1 ] || fail "stdin: spy not called"
+  [ ! -s "$E/stdin" ] || fail "stdin: install call read session stdin"
+}
+
 rc=0
-for c in "1 baseline" "2 staging failure" "3 file boundary" "4 no home" "5 GSD_HOME only"; do
+for c in "1 baseline" "2 staging failure" "3 file boundary" "4 no home" "5 GSD_HOME only" "6 hostile repo" "7 executable surface" "8 stdin"; do
   n="${c%% *}"
   if ( "case$n" ) >"$SCRATCH/out$n" 2>&1; then pass "case $c"; else cat "$SCRATCH/out$n"; rc=1; fi
 done

@@ -65,11 +65,9 @@ NEW_HASH="$(bundle_hash)"
 gsd_tools() {
   if [ -z "${_GSD_TOOLS_ARGS_SET+x}" ]; then
     _GSD_TOOLS_ARGS_SET=1
-    local _root
-    _root="$(git rev-parse --show-toplevel 2>/dev/null)"
-    if [ -n "$_root" ] && [ -f "$_root/gsd-core/bin/gsd-tools.cjs" ]; then
-      _GSD_TOOLS_ARGS=(node "$_root/gsd-core/bin/gsd-tools.cjs")
-    elif command -v gsd-tools >/dev/null 2>&1; then
+    # Never resolve from the cwd's git repo: a cloned repo's gsd-core/bin/gsd-tools.cjs is
+    # untrusted code and must not run on SessionStart or command expansion.
+    if command -v gsd-tools >/dev/null 2>&1; then
       _GSD_TOOLS_ARGS=(gsd-tools)
     elif [ -f "${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/gsd-core/bin/gsd-tools.cjs" ]; then
       _GSD_TOOLS_ARGS=(node "${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/gsd-core/bin/gsd-tools.cjs")
@@ -93,8 +91,25 @@ fi
 # Spec is always the absolute bundle dir -- a relative spec would resolve
 # against the end user's cwd, not the plugin. Prose "user scope" maps to the
 # CLI's literal --scope global value.
-gsd_tools capability install "$BUNDLE_DIR" --scope global --yes >/dev/null 2>&1
-INSTALL_STATUS=$?
+#
+# Consent: --yes only for a declarative bundle. gsd-core counts hooks, commands, mcpServers
+# and reviewer as executable surfaces (src/capability-trust.cts hasExecutable); those need
+# the user's own consent, never an unattended SessionStart grant. Unparseable manifest =
+# executable (fail closed). </dev/null: a prompt must never block session start.
+if node -e '
+  const m = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+  const arr = (v) => Array.isArray(v) && v.length > 0;
+  const obj = (v) => v !== null && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length > 0;
+  process.exit(arr(m.hooks) || arr(m.commands) || arr(m.mcpServers) || obj(m.mcpServers) || obj(m.reviewer) ? 1 : 0);
+' "$BUNDLE_DIR/capability.json" >/dev/null 2>&1; then
+  gsd_tools capability install "$BUNDLE_DIR" --scope global --yes </dev/null >/dev/null 2>&1
+  INSTALL_STATUS=$?
+else
+  # gsd-core discloses and aborts without --yes. No hash write: re-reminded each session.
+  gsd_tools capability install "$BUNDLE_DIR" --scope global </dev/null >/dev/null 2>&1
+  echo "capability-auto-install: $CAP_ID declares executable surfaces, not auto-consented; review with: gsd-tools capability install $BUNDLE_DIR --scope global" >&2
+  exit 0
+fi
 
 if [ "$INSTALL_STATUS" -eq 0 ]; then
   printf 'Auto-installed capability: %s (user scope)\n' "$CAP_ID"
