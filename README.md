@@ -181,7 +181,10 @@ codex plugin remove ponytail-everywhere@gsd-beads --json
   (boolean, default `true`), `ponytail.level` (`lite` | `full` | `ultra`, default `full`), and
   `ponytail.enforcement` (`advisory` | `warn` | `block`, default `warn`).
 - **The `SessionStart` hook re-grants the capability bundle at user scope on every session
-  start**, and exits silently when the bundle is unchanged. Subagent starts skip the re-grant.
+  start**, and exits silently when the bundle is unchanged. Change detection hashes each bundle
+  file separately, so bytes moved between files count as a change. If staging the bundle fails, the
+  hook reports it on stderr, installs nothing, and retries next session. With no `HOME` or
+  `GSD_HOME` it exits quietly. Subagent starts skip the re-grant.
 - **Installing through the marketplace copies the cloned repo into the runtime's local plugin
   cache** under `~/.claude/plugins/cache/` for Claude Code or `~/.codex/plugins/cache/` for Codex.
   This repo does not control either runtime's cache layout.
