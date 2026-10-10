@@ -1,4 +1,5 @@
 Ponytail lazy-ladder discipline for execution (advisory, not a gate).
-Climb the ladder before writing code: reuse what is already in this codebase, then the standard library, then a native platform feature, then an already-installed dependency — before adding anything new. Shortest working diff wins.
-At the resolved ponytail.level: lite applies rungs 1-2 only (does this need to exist at all, is it already in this codebase); full climbs the whole ladder as above; ultra also prefers deleting existing code over adding new code.
-Never simplify away input validation at trust boundaries, error handling that prevents data loss, security controls, accessibility basics, or anything explicitly requested.
+Climb the ladder before writing code: reuse what is already in this codebase, then the standard library, then a native platform feature, then an already-installed dependency, before adding anything new. Shortest working diff wins. Before writing, list every caller, test, fixture, config and export the change must reach; be lazy about the solution, never about the change.
+At the resolved ponytail.level: lite builds what was asked and names the smaller option in one line; full climbs the whole ladder above; ultra also questions the request and pushes back on any part the need does not justify.
+Floors, always kept: input validation at trust boundaries, error handling that prevents data loss, security controls, accessibility basics, anything explicitly requested. Moved or merged code keeps its error handling and validation.
+Mark a known-limit shortcut with a comment `shortcut: <limit>, <when to upgrade>`. New logic gets one small test. Bug fix: grep every caller, fix the root cause once. End the reply with what you skipped or did not check, and any risk.

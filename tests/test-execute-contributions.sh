@@ -27,7 +27,7 @@ elif [ -f "${GSD_TOOLS_CJS:-$HOME/.codex/gsd-core/bin/gsd-tools.cjs}" ]; then
   GSD_CJS="${GSD_TOOLS_CJS:-$HOME/.codex/gsd-core/bin/gsd-tools.cjs}"
   GSD_ENTRY="$GSD_CJS"
 else
-  fail "gsd-tools 1.12.0 or later is required"
+  fail "gsd-tools 1.13.0 or later is required"
 fi
 
 gsd_tools() {
@@ -125,7 +125,7 @@ assert_dispatch_at() {
     at && NR > at && NR <= at + 12 && index($0, needle) { found = 1 }
     END { exit(found ? 0 : 1) }
   ' "$EXECUTE_WORKFLOW" \
-    || fail "host execute workflow does not dispatch contributions at $1; gsd-core 1.12.0 or later is required"
+    || fail "host execute workflow does not dispatch contributions at $1; gsd-core 1.13.0 or later is required"
 }
 assert_dispatch_at execute:wave:pre
 assert_dispatch_at execute:wave:post
@@ -162,14 +162,21 @@ pass "no executor or verifier landing site: both execute contributions remain un
 # --- documentation must match the evidence ---------------------------------------
 
 NOTES="$CAPABILITY_SOURCE/NOTES.md"
-for text in 'neither target agent' 'open-gsd/gsd-core#4350'; do
+for text in 'neither target agent' 'open-gsd/gsd-core#4350' 'superseded by #4740'; do
   grep -Fq "$text" "$NOTES" || fail "NOTES omits undelivered-reach contract: $text"
   grep -Fq "$text" "$REPO_ROOT/README.md" || fail "README omits undelivered-reach contract: $text"
 done
+! grep -Fq 'Tracked upstream as open-gsd/gsd-core#4350' "$NOTES" "$REPO_ROOT/README.md" \
+  || fail "docs still call closed #4350 tracked upstream"
 grep -Fq 'test-execute-contributions.sh' "$REPO_ROOT/.github/workflows/ci.yml" \
   || fail "CI does not run the execute-point reach test"
-grep -Eq '@opengsd/gsd-core@(1\.(1[2-9]|[2-9][0-9]+)|[2-9][0-9]*\.)' "$REPO_ROOT/.github/workflows/ci.yml" \
-  || fail "CI does not install a gsd-core with execute-point contribution dispatch"
+CI="$REPO_ROOT/.github/workflows/ci.yml"
+grep -Eq "gsd: \['1\.(1[3-9]|[2-9][0-9]+)\.[0-9]+', 'latest'\]" "$CI" \
+  || fail "CI matrix lacks a supported gsd-core floor plus a latest canary"
+grep -Fq "@opengsd/gsd-core@\${{ matrix.gsd }}" "$CI" || fail "CI does not install the matrix gsd-core"
+grep -Fq "continue-on-error: \${{ matrix.gsd == 'latest' }}" "$CI" || fail "CI latest canary can block merges"
+grep -Fq 'permissions:' "$CI" && grep -Fq 'timeout-minutes:' "$CI" || fail "CI lacks least-privilege permissions or a job timeout"
+grep -Fq 'branches: [main]' "$CI" || fail "CI push trigger is unrestricted and double-runs pull requests"
 pass "documentation and CI still carry the reach statements this test proves"
 
 printf '%s\n' 'ALL PASS'

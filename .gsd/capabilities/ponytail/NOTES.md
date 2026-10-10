@@ -82,7 +82,7 @@ at `execute:wave:post` at all, which is the pattern open-gsd/gsd-core#4286 close
 admissible role at a point that never dispatches that agent is not reach. Expect the verifier half
 to need a different point, not a landing site.
 
-Tracked upstream as open-gsd/gsd-core#4350. Related: open-gsd/gsd-core#3997 asks for the same landing
+Upstream: open-gsd/gsd-core#4350, closed as superseded by #4740 (open-gsd/gsd-core, closed; clarifies the role partition, adds no landing site on 1.13.0). Related: open-gsd/gsd-core#3997 asks for the same landing
 site in external reviewer prompts, and asserts in its own body that Ponytail already reaches the
 executor and verifier roles — this section is the evidence that it does not.
 

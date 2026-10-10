@@ -33,7 +33,7 @@ chmod +x "$SCRATCH/bin/gh"
 
 cat > "$SCRATCH/bin/claude" <<'EOF'
 #!/usr/bin/env bash
-printf 'call\n' >> "$TEST_LOG/claude"
+printf 'call %s %s %s\n' "$1" "$2" "$3" >> "$TEST_LOG/claude"
 [ -n "${CLAUDE_SLEEP:-}" ] && sleep "$CLAUDE_SLEEP"
 [ "${CLAUDE_EXIT:-0}" -eq 0 ] || exit "$CLAUDE_EXIT"
 if [ -n "${CLAUDE_RESPONSE:-}" ]; then printf '%s\n' "$CLAUDE_RESPONSE"; else printf '%s\n' '{"route":"quick","confidence":0.9,"reason":"bounded change"}'; fi
@@ -59,6 +59,7 @@ run_hook() {
     TEST_LOG="$SCRATCH" \
     GH_SLEEP="${GH_SLEEP:-}" GH_EXIT="${GH_EXIT:-0}" GH_RESPONSE="${GH_RESPONSE:-}" \
     CLAUDE_SLEEP="${CLAUDE_SLEEP:-}" CLAUDE_EXIT="${CLAUDE_EXIT:-0}" CLAUDE_RESPONSE="${CLAUDE_RESPONSE:-}" \
+    PONYTAIL_CLASSIFY_TIMEOUT_MS="${PONYTAIL_CLASSIFY_TIMEOUT_MS:-}" \
     node "$SCRIPT" 2>"$SCRATCH/stderr")"
   STATUS=$?
   ERR="$(cat "$SCRATCH/stderr")"
@@ -118,10 +119,10 @@ pass "case6: ambiguity invokes Claude once and accepts valid schema"
 CLAUDE_RESPONSE='{"route":"milestone","confidence":0.8,"reason":"broad"}' run_hook '{"hook_event_name":"UserPromptExpansion","command_name":"gsd-new-milestone","command_args":"consider https://github.com/acme/widgets/issues/7 https://github.com/acme/widgets/pull/8 https://github.com/acme/widgets/pull/8#pullrequestreview-9 https://github.com/acme/widgets/issues/7#issuecomment-10","prompt":"consider linked context","cwd":"'"$SCRATCH/project"'"}'
 [ "$STATUS" -eq 0 ] || fail "case7: GitHub evidence request exited non-zero"
 [ "$(wc -l < "$SCRATCH/gh")" -eq 4 ] || fail "case7: expected four GitHub lookups"
-grep -qx 'api --method GET repos/acme/widgets/issues/7' "$SCRATCH/gh" || fail "case7: issue lookup was not GET"
-grep -qx 'api --method GET repos/acme/widgets/pulls/8' "$SCRATCH/gh" || fail "case7: pull lookup was not GET"
-grep -qx 'api --method GET repos/acme/widgets/pulls/8/reviews/9' "$SCRATCH/gh" || fail "case7: review lookup was not GET"
-grep -qx 'api --method GET repos/acme/widgets/issues/comments/10' "$SCRATCH/gh" || fail "case7: issue-comment lookup was not GET"
+grep -Fqx 'api --method GET repos/acme/widgets/issues/7 --jq {title,body:((.body // "")[0:1500])}' "$SCRATCH/gh" || fail "case7: issue lookup was not GET"
+grep -Fqx 'api --method GET repos/acme/widgets/pulls/8 --jq {title,body:((.body // "")[0:1500])}' "$SCRATCH/gh" || fail "case7: pull lookup was not GET"
+grep -Fqx 'api --method GET repos/acme/widgets/pulls/8/reviews/9 --jq {title,body:((.body // "")[0:1500])}' "$SCRATCH/gh" || fail "case7: review lookup was not GET"
+grep -Fqx 'api --method GET repos/acme/widgets/issues/comments/10 --jq {title,body:((.body // "")[0:1500])}' "$SCRATCH/gh" || fail "case7: issue-comment lookup was not GET"
 pass "case7: recognized GitHub evidence uses GET endpoints"
 
 TEST_ENFORCEMENT=advisory run_hook '{"hook_event_name":"UserPromptExpansion","command_name":"gsd-new-milestone","command_args":"review this issue","prompt":"review this issue","cwd":"'"$SCRATCH/project"'"}'
@@ -174,7 +175,7 @@ ELAPSED_MS=$(( $(node -p 'Date.now()') - START_MS ))
 node -e 'const v=JSON.parse(process.argv[1]); if(v.decision || !v.additionalContext) process.exit(1)' "$OUT" || fail "case11: gh timeout did not fail open"
 
 START_MS="$(node -p 'Date.now()')"
-CLAUDE_SLEEP=4 run_hook '{"hook_event_name":"UserPromptExpansion","command_name":"gsd-new-milestone","command_args":"help with widgets","prompt":"help with widgets","cwd":"'"$SCRATCH/project"'"}'
+PONYTAIL_CLASSIFY_TIMEOUT_MS=3000 CLAUDE_SLEEP=4 run_hook '{"hook_event_name":"UserPromptExpansion","command_name":"gsd-new-milestone","command_args":"help with widgets","prompt":"help with widgets","cwd":"'"$SCRATCH/project"'"}'
 ELAPSED_MS=$(( $(node -p 'Date.now()') - START_MS ))
 [ "$ELAPSED_MS" -ge 2500 ] && [ "$ELAPSED_MS" -lt 4000 ] || fail "case11: Claude timeout did not precede natural exit"
 node -e 'const v=JSON.parse(process.argv[1]); if(v.decision || !v.additionalContext) process.exit(1)' "$OUT" || fail "case11: Claude timeout did not fail open"
@@ -182,5 +183,25 @@ node -e 'const v=JSON.parse(process.argv[1]); if(v.decision || !v.additionalCont
 [ "$CONFIG_HASH" = "$(sha256sum "$SCRATCH/project/.planning/config.json" | cut -d' ' -f1)" ] || fail "case11: hook changed project config"
 [ "$(find "$SCRATCH/project" -type f | wc -l)" -eq 1 ] || fail "case11: hook created project artifacts"
 pass "case11: failures fail open and project tree stays unchanged"
+
+# --- case12: default budget outlasts a slow Claude; fenced JSON parses; Haiku is requested ---
+: > "$SCRATCH/claude"
+CLAUDE_SLEEP=4 CLAUDE_RESPONSE=$'```json\n{"route":"quick","confidence":0.9,"reason":"bounded change"}\n```' run_hook '{"hook_event_name":"UserPromptExpansion","command_name":"gsd-new-milestone","command_args":"help with widgets","prompt":"help with widgets","cwd":"'"$SCRATCH/project"'"}'
+node -e 'const v=JSON.parse(process.argv[1]); if(v.decision!=="block" || !/quick/.test(v.reason)) process.exit(1)' "$OUT" || fail "case12: slow fenced Claude answer was not enforced"
+grep -qx 'call --print --model haiku' "$SCRATCH/claude" || fail "case12: classifier did not request the haiku model"
+pass "case12: default budget, fenced JSON, haiku model"
+
+# --- case13: a bare slash command has nothing to classify; a path argument is kept ---
+: > "$SCRATCH/claude"
+run_hook '{"hook_event_name":"UserPromptExpansion","command_name":"gsd-new-project","command_args":"","prompt":"/gsd-new-project","cwd":"'"$SCRATCH/project"'"}'
+[ "$STATUS" -eq 0 ] && [ -z "$OUT$ERR" ] && [ ! -s "$SCRATCH/claude" ] || fail "case13: bare command invoked Claude or produced output"
+run_hook '{"hook_event_name":"UserPromptExpansion","command_name":"gsd-new-milestone","command_args":"/home/me/spec.md","prompt":"","cwd":"'"$SCRATCH/project"'"}'
+[ "$(wc -l < "$SCRATCH/claude")" -ge 1 ] || fail "case13: a path argument was stripped as if it were the command"
+pass "case13: bare slash command is silent"
+
+# --- case14: hook timeout covers the worst-case classification budget ---
+BUDGET_MS="$(grep -o 'PONYTAIL_CLASSIFY_TIMEOUT_MS) || [0-9]*' "$SCRIPT" | grep -o '[0-9]*$')"
+jq -e --argjson b "$BUDGET_MS" '.hooks.UserPromptExpansion[0].hooks[0].timeout * 1000 >= $b + 6000' "$REPO_ROOT/hooks/hooks.json" >/dev/null || fail "case14: hook timeout does not cover the classification budget plus two config reads"
+pass "case14: hook timeout set"
 
 echo "ALL PASS"

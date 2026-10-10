@@ -10,10 +10,24 @@ before writing, stdlib/native before dependencies, shortest working diff) into t
 `plan:pre`. It declares the same discipline for the executor at `execute:wave:pre` and the verifier
 at `execute:wave:post`, but those two fragments reach neither target agent on gsd-core 1.13.0: the
 execute workflow dispatches contributions without a landing site for either role, so the
-orchestrator has nowhere to route them (open-gsd/gsd-core#4350). It also prints the same ladder banner on
+orchestrator has nowhere to route them (open-gsd/gsd-core#4350, closed as superseded by #4740, which
+clarifies the role partition and adds no landing site on 1.13.0). It also prints the same ladder banner on
 Claude Code's `SessionStart` and on
 `gsd-planner`/`gsd-executor`/`gsd-code-reviewer`/`gsd-verifier` subagent start, so the discipline
 reminder reaches a session whether or not a gsd phase is currently running.
+
+Subagent banners go out as `hookSpecificOutput.additionalContext` JSON, the only form Claude Code
+delivers to a subagent. Levels follow upstream: `lite` builds what was asked and names the smaller
+option, `full` climbs the ladder, `ultra` also questions the request.
+
+### With upstream ponytail
+
+When [upstream ponytail](https://github.com/DietrichGebert/ponytail) is active (its
+`.ponytail-active` mode flag exists), it already injects the ladder, so the banner stays silent for
+the planner, executor and session. The verifier keeps only the collaborator contract below. The two
+use separate config: this plugin reads `ponytail.*` from `.planning/config.json`; upstream reads
+`PONYTAIL_DEFAULT_MODE` and `~/.config/ponytail/config.json`. The flag is written at upstream's
+`SessionStart`, so the first session after enabling it may show both banners once.
 
 ### Claude collaborator review guidance
 
@@ -29,10 +43,13 @@ continuation preserves artifact integrity and all external contracts.
 - Non-waivable blockers: security, trust-boundary, data-loss, race, accessibility, source/document divergence,
   constructor-divergence, ASVS, and TDD.
 
+Severity mapping to upstream `/ponytail-review`: blockers and required findings are *Must fix*,
+suggestions are *Should fix*, minor-style concerns are *Nice to have*.
+
 Runtime-neutral collaborator reach is blocked upstream, not here: gsd-core dispatches the
 `execute:wave:pre` and `execute:wave:post` contributions but offers no landing site for the
 `executor` or `verifier` role, so the `SubagentStart` hooks above remain the only execute-time and
-verify-time delivery. Tracked upstream as open-gsd/gsd-core#4350; the downstream evidence and its
+verify-time delivery. Upstream: open-gsd/gsd-core#4350, closed as superseded by #4740; the evidence and its
 regression test are in
 [issue #3](https://github.com/davdittrich/ponytail-everywhere/issues/3).
 
@@ -159,7 +176,7 @@ codex plugin remove ponytail-everywhere@gsd-beads --json
   (boolean, default `true`), `ponytail.level` (`lite` | `full` | `ultra`, default `full`), and
   `ponytail.enforcement` (`advisory` | `warn` | `block`, default `warn`).
 - **The `SessionStart` hook re-grants the capability bundle at user scope on every session
-  start**, and exits silently when the bundle is unchanged.
+  start**, and exits silently when the bundle is unchanged. Subagent starts skip the re-grant.
 - **Installing through the marketplace copies the cloned repo into the runtime's local plugin
   cache** under `~/.claude/plugins/cache/` for Claude Code or `~/.codex/plugins/cache/` for Codex.
   This repo does not control either runtime's cache layout.

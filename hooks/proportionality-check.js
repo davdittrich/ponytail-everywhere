@@ -61,11 +61,16 @@ function githubEndpoints(text) {
   return endpoints.slice(0, 4);
 }
 
+// One budget bounds every gh lookup plus the Claude call.
+const budgetMs = Number(process.env.PONYTAIL_CLASSIFY_TIMEOUT_MS) || 15000;
+const deadline = Date.now() + budgetMs;
+const within = cap => Math.max(1, Math.min(cap, deadline - Date.now()));
+
 function classifyAmbiguous(text) {
   const evidence = [];
   for (const endpoint of githubEndpoints(text)) {
-    const result = spawnSync('gh', ['api', '--method', 'GET', endpoint], {
-      encoding: 'utf8', timeout: 3000, maxBuffer: 32768,
+    const result = spawnSync('gh', ['api', '--method', 'GET', endpoint, '--jq', '{title,body:((.body // "")[0:1500])}'], {
+      encoding: 'utf8', timeout: within(3000), maxBuffer: 32768,
     });
     if (result.status !== 0) return null;
     evidence.push(result.stdout.slice(0, 2000));
@@ -78,13 +83,14 @@ function classifyAmbiguous(text) {
     `Request: ${text.slice(0, 2000)}`,
     evidence.length ? `GitHub evidence: ${evidence.join('\n').slice(0, 4000)}` : '',
   ].filter(Boolean).join('\n');
-  const result = spawnSync('claude', ['--print', prompt], {
-    encoding: 'utf8', timeout: 3000, maxBuffer: 32768,
+  const result = spawnSync('claude', ['--print', '--model', 'haiku', prompt], {
+    encoding: 'utf8', timeout: within(budgetMs), maxBuffer: 32768,
   });
   if (result.status !== 0) return null;
 
   try {
-    const value = JSON.parse(result.stdout);
+    // The model may wrap the object in a code fence or a sentence.
+    const value = JSON.parse(result.stdout.match(/\{[\s\S]*\}/)[0]);
     const keys = Object.keys(value).sort().join(',');
     if (keys !== 'confidence,reason,route' || !Object.hasOwn(rank, value.route)) return null;
     if (typeof value.confidence !== 'number' || value.confidence < 0.6 || value.confidence > 1) return null;
@@ -109,8 +115,9 @@ if (getConfig(cwd, 'ponytail.enabled', 'true') === 'false') process.exit(0);
 
 const enforcementValue = getConfig(cwd, 'ponytail.enforcement', 'warn');
 const enforcement = ['advisory', 'warn', 'block'].includes(enforcementValue) ? enforcementValue : 'warn';
-const text = [input.command_args, input.prompt].filter(value => typeof value === 'string').join('\n').slice(0, 4000);
-if (text.includes('[ponytail:milestone]')) process.exit(0);
+const text = [input.command_args, input.prompt].filter(value => typeof value === 'string')
+  .map(value => value.replace(/^\s*\/gsd\S*/, '')).join('\n').trim().slice(0, 4000);
+if (!text || text.includes('[ponytail:milestone]')) process.exit(0);
 
 let route = classify(text);
 if (route === 'ambiguous') {

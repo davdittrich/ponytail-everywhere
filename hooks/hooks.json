@@ -4,7 +4,7 @@
       {
         "matcher": "^(gsd-new-project|gsd-new-milestone|gsd-manager|gsd-mvp-phase|gsd-discuss-phase)$",
         "hooks": [
-          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/proportionality-check.js\"" }
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/proportionality-check.js\"", "timeout": 30 }
         ]
       }
     ],

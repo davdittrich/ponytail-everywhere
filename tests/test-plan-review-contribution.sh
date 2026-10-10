@@ -15,11 +15,11 @@ pass() { printf 'PASS: %s\n' "$1"; }
 if command -v gsd-tools >/dev/null 2>&1; then
   GSD_COMMAND="$(command -v gsd-tools)"
   GSD_CJS=""
-elif [ -f "${GSD_TOOLS_CJS:-/home/dd/.codex/gsd-core/bin/gsd-tools.cjs}" ]; then
+elif [ -n "${GSD_TOOLS_CJS:-}" ] && [ -f "$GSD_TOOLS_CJS" ]; then
   GSD_COMMAND=""
-  GSD_CJS="${GSD_TOOLS_CJS:-/home/dd/.codex/gsd-core/bin/gsd-tools.cjs}"
+  GSD_CJS="$GSD_TOOLS_CJS"
 else
-  fail "gsd-tools 1.11.0 is required"
+  fail "gsd-tools 1.13.0 or later is required (or set GSD_TOOLS_CJS)"
 fi
 
 gsd_tools() {
