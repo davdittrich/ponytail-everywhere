@@ -34,7 +34,7 @@ case1() {
   mk_env c1
   [ "$(run_hook)" = 0 ] || fail "baseline: first run exit != 0"
   [ "$(ncalls)" = 1 ] || fail "baseline: expected 1 spy call, got $(ncalls)"
-  grep -q '^capability install' "$CALLS" || fail "baseline: spy not called with 'capability install'"
+  grep -q "^capability install $HOME_DIR/.gsd/capability-bundle-$ID --scope global --yes\$" "$CALLS" || fail "baseline: spy called with unexpected arguments: $(cat "$CALLS")"
   [ -s "$HASH" ] || fail "baseline: hash sidecar not written"
   [ "$(run_hook)" = 0 ] || fail "baseline: second run exit != 0"
   [ ! -s "$E/stdout" ] && [ ! -s "$E/stderr" ] || fail "baseline: second run not silent"
@@ -54,10 +54,10 @@ case3() {
   mk_env c3
   rm -rf "$PLUGIN/fragments"; mkdir "$PLUGIN/fragments"
   printf AAA > "$PLUGIN/fragments/a.md"; printf BBB > "$PLUGIN/fragments/b.md"
-  run_hook >/dev/null
+  [ "$(run_hook)" = 0 ] || fail "file boundary: baseline exit != 0"
   [ "$(ncalls)" = 1 ] || fail "file boundary: baseline install missing"
   printf AA > "$PLUGIN/fragments/a.md"; printf ABBB > "$PLUGIN/fragments/b.md"
-  run_hook >/dev/null
+  [ "$(run_hook)" = 0 ] || fail "file boundary: reinstall exit != 0"
   [ "$(ncalls)" = 2 ] || fail "file boundary: content moved across files did not trigger reinstall"
 }
 
@@ -71,8 +71,20 @@ case4() {
   [ "$(ncalls)" = 0 ] || fail "no home: spy called"
 }
 
+# GSD_HOME set, HOME unset, no gsd-tools anywhere: the resolver must not trip set -u.
+case5() {
+  mk_env c5
+  rm -f "$SPY/gsd-tools"
+  local out
+  out="$(cd "$CWD" && env -i PATH=/usr/bin:/bin CLAUDE_PLUGIN_ROOT="$PLUGIN" GSD_HOME="$HOME_DIR" \
+    bash "$PLUGIN/hooks/capability-auto-install.sh" "$ID" 2>"$E/stderr"; echo "rc=$?")"
+  [ "$out" = "rc=0" ] || fail "GSD_HOME only: expected exit 0, got: $out"
+  grep -q 'unbound variable' "$E/stderr" && fail "GSD_HOME only: unbound variable: $(cat "$E/stderr")"
+  [ ! -e "$HASH" ] || fail "GSD_HOME only: hash written without an install"
+}
+
 rc=0
-for c in "1 baseline" "2 staging failure" "3 file boundary" "4 no home"; do
+for c in "1 baseline" "2 staging failure" "3 file boundary" "4 no home" "5 GSD_HOME only"; do
   n="${c%% *}"
   if ( "case$n" ) >"$SCRATCH/out$n" 2>&1; then pass "case $c"; else cat "$SCRATCH/out$n"; rc=1; fi
 done

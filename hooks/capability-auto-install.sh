@@ -71,8 +71,8 @@ gsd_tools() {
       _GSD_TOOLS_ARGS=(node "$_root/gsd-core/bin/gsd-tools.cjs")
     elif command -v gsd-tools >/dev/null 2>&1; then
       _GSD_TOOLS_ARGS=(gsd-tools)
-    elif [ -f "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/gsd-core/bin/gsd-tools.cjs" ]; then
-      _GSD_TOOLS_ARGS=(node "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/gsd-core/bin/gsd-tools.cjs")
+    elif [ -f "${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/gsd-core/bin/gsd-tools.cjs" ]; then
+      _GSD_TOOLS_ARGS=(node "${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/gsd-core/bin/gsd-tools.cjs")
     else
       _GSD_TOOLS_ARGS=()
     fi
@@ -85,7 +85,7 @@ gsd_tools() {
 # install source, so it must outlive this run. Never install a partial bundle,
 # never record the hash: a failed stage exits before either can happen.
 BUNDLE_DIR="${GSD_HOME:-$HOME}/.gsd/capability-bundle-$CAP_ID"
-if ! { rm -rf "$BUNDLE_DIR" && mkdir -p "$BUNDLE_DIR" && (cd "$BUNDLE_SRC" && cp -RL "${BUNDLE_FILES[@]}" "$BUNDLE_DIR"/); } 2>/dev/null; then
+if ! { rm -rf "$BUNDLE_DIR" && mkdir -p "$BUNDLE_DIR" && (cd "$BUNDLE_SRC" && cp -RL "${BUNDLE_FILES[@]}" "$BUNDLE_DIR"/); }; then
   echo "capability-auto-install: staging failed for $CAP_ID; not installed" >&2
   exit 0
 fi
