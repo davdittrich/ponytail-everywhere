@@ -285,7 +285,9 @@ case36() { mk_env c36; mk_timeout 'exit 137'
   grep -q 'exceeded 60s' "$E/stderr" || fail "SIGKILL: stderr lacks message: $(cat "$E/stderr")"; }
 # No gsd-tools reachable: the timed child returns 127 and the hook says so, writing nothing.
 case37() { mk_env c37; rm -f "$SPY/gsd-tools"
-  (cd "$CWD" && env -i PATH=/usr/bin:/bin CLAUDE_PLUGIN_ROOT="$PLUGIN" GSD_HOME="$HOME_DIR" \
+  # node alone (it reads the manifest for the consent check); no gsd-tools anywhere on PATH
+  mkdir "$E/nodebin"; ln -s "$(command -v node)" "$E/nodebin/node"
+  (cd "$CWD" && env -i PATH="$E/nodebin:/usr/bin:/bin" CLAUDE_PLUGIN_ROOT="$PLUGIN" GSD_HOME="$HOME_DIR" \
     bash "$PLUGIN/hooks/capability-auto-install.sh" "$ID" 2>"$E/stderr" >/dev/null)
   grep -q 'gsd-tools not found' "$E/stderr" || fail "127: stderr lacks message: $(cat "$E/stderr")"
   [ ! -e "$HASH" ] || fail "127: sidecar written"; }
