@@ -56,8 +56,10 @@ OLD_HASH=""
 [ -r "$STATE_FILE" ] && OLD_HASH="$(cat "$STATE_FILE" 2>/dev/null)"
 NEW_HASH="$(bundle_hash)"
 
-# Fast path: unchanged bundle exits silently, never spawns node.
-[ "$NEW_HASH" = "$OLD_HASH" ] && exit 0
+# Fast path: unchanged bundle exits silently, never spawns node. The sidecar
+# only records what the global mirror held when written, so also require the
+# mirror's manifest (a deleted mirror must be repaired).
+[ "$NEW_HASH" = "$OLD_HASH" ] && [ -f "${GSD_HOME:-$HOME}/.gsd/capabilities/$CAP_ID/capability.json" ] && exit 0
 
 # Fail closed: a git that cannot answer is not "safe" (`command -v` alone
 # misses a git on PATH that exits non-zero).
@@ -71,8 +73,8 @@ fi
 # refusal writes STATE_FILE, so a later session retries once published.
 # Ownership, not enclosure: only a repository that *tracks* the bundle speaks
 # for its bytes. A plugin-cache copy sits in no repository and is not guarded.
-# Derived from sota-numerics; tests/test-capability-auto-install.sh header
-# lists the rows.
+# Derived from sota-numerics; the rows are enumerated above case 9 in
+# tests/test-capability-auto-install.sh.
 #
 # TRACKED is 0 when the repository tracks any BUNDLE_FILES entry (apply the
 # publication checks), 1 when it answered and tracks none, 128 when git did
@@ -200,31 +202,71 @@ fi
 # and reviewer as executable surfaces (src/capability-trust.cts hasExecutable); those need
 # the user's own consent, never an unattended SessionStart grant. Unparseable manifest =
 # executable (fail closed). </dev/null: a prompt must never block session start.
-if node -e '
+_YES=()
+node -e '
   const m = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
   const arr = (v) => Array.isArray(v) && v.length > 0;
   const obj = (v) => v !== null && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length > 0;
   process.exit(arr(m.hooks) || arr(m.commands) || arr(m.mcpServers) || obj(m.mcpServers) || obj(m.reviewer) ? 1 : 0);
-' "$BUNDLE_DIR/capability.json" >/dev/null 2>&1; then
-  gsd_tools capability install "$BUNDLE_DIR" --scope global --yes </dev/null >/dev/null 2>&1
-  INSTALL_STATUS=$?
-else
-  # gsd-core discloses and aborts without --yes. No hash write: re-reminded each session.
-  gsd_tools capability install "$BUNDLE_DIR" --scope global </dev/null >/dev/null 2>&1
+' "$BUNDLE_DIR/capability.json" >/dev/null 2>&1 && _YES=(--yes)
+
+# A directory copy and a JSON write behind one `node` start: seconds. 60 is a
+# loose bound for a cold start on a loaded or network-mounted home; the
+# invocation and the message both read it.
+INSTALL_TIMEOUT=60
+
+# -k 5: SIGKILL a child that ignores SIGTERM. `timeout` is coreutils; macOS has
+# `gtimeout` only with coreutils, and with neither _TIMEOUT is empty and the
+# install runs unbounded. -k is GNU: probe it, else use a bare bound.
+_TIMEOUT=()
+for _t in timeout gtimeout; do
+  command -v "$_t" >/dev/null 2>&1 || continue
+  if "$_t" -k 1 1 true >/dev/null 2>&1; then _TIMEOUT=("$_t" -k 5 "$INSTALL_TIMEOUT")
+  else _TIMEOUT=("$_t" "$INSTALL_TIMEOUT"); fi
+  break
+done
+
+# gsd_tools is a shell function, so the timed child is `bash -c` with its
+# definition spliced in; the bundle dir and flags arrive as argv, never
+# interpolated. The "${_TIMEOUT[@]+...}" form is deliberate: a bare empty array
+# aborts under `set -u` on bash 3.2 (macOS).
+"${_TIMEOUT[@]+"${_TIMEOUT[@]}"}" bash -c "$(declare -f gsd_tools); gsd_tools capability install \"\$@\"" _ \
+  "$BUNDLE_DIR" --scope global "${_YES[@]+"${_YES[@]}"}" </dev/null >/dev/null 2>&1
+INSTALL_STATUS=$?
+
+# Without --yes gsd-core discloses the executable surfaces and stops. No hash
+# write: re-reminded each session.
+if [ "${#_YES[@]}" -eq 0 ]; then
   echo "capability-auto-install: $CAP_ID declares executable surfaces, not auto-consented; review with: gsd-tools capability install $BUNDLE_DIR --scope global" >&2
   exit 0
 fi
 
+# Re-hash after the install: if the bytes moved while it ran, the mirror is not
+# described by NEW_HASH, so record nothing and retry next session.
 if [ "$INSTALL_STATUS" -eq 0 ]; then
-  printf 'Auto-installed capability: %s (user scope)\n' "$CAP_ID"
-  mkdir -p "$(dirname "$STATE_FILE")" 2>/dev/null
-  printf '%s' "$NEW_HASH" > "$STATE_FILE" 2>/dev/null
+  if [ "$(bundle_hash)" != "$NEW_HASH" ]; then
+    echo "capability-auto-install: the $CAP_ID bundle changed during the install; not recording it as installed" >&2
+  else
+    printf 'Auto-installed capability: %s (user scope)\n' "$CAP_ID"
+    mkdir -p "$(dirname "$STATE_FILE")" 2>/dev/null
+    # Unlink first so the redirection creates a fresh regular file instead of
+    # following a link at STATE_FILE. A directory there makes both fail
+    # harmlessly: no sidecar, retry next session. Residual: a racing attacker
+    # could re-plant the link between rm and redirection; closing it needs
+    # O_NOFOLLOW, which no shell offers.
+    rm -f "$STATE_FILE" 2>/dev/null
+    printf '%s' "$NEW_HASH" > "$STATE_FILE" 2>/dev/null
+  fi
 elif [ "$INSTALL_STATUS" -eq 127 ]; then
   # Deliberate divergence from this repo's usual silent `|| true`
   # fail-open convention -- this path is unattended, so silence would leave
   # a capability permanently inactive with nobody the wiser. Do not "fix"
   # this back to silent. Do NOT write STATE_FILE, so the next session retries.
   echo "capability-auto-install: gsd-tools not found; $CAP_ID not installed" >&2
+elif { [ "$INSTALL_STATUS" -eq 124 ] || [ "$INSTALL_STATUS" -eq 137 ]; } && [ "${#_TIMEOUT[@]}" -gt 0 ]; then
+  # 137 is the -k SIGKILL of a child that ignored SIGTERM. Only when the wrapper
+  # was used: an install that itself exits 124 must not be mislabelled a kill.
+  echo "capability-auto-install: capability install for $CAP_ID exceeded ${INSTALL_TIMEOUT}s and was killed; not installed" >&2
 else
   # Same rationale as above -- install command ran and failed.
   echo "capability-auto-install: capability install failed for $CAP_ID (exit $INSTALL_STATUS)" >&2

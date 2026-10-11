@@ -9,7 +9,7 @@ fail() { echo "FAIL: $1"; exit 1; }
 pass() { echo "PASS: $1"; }
 
 SCRATCH="$(mktemp -d)"
-trap 'rm -rf "$SCRATCH" 2>/dev/null' EXIT
+trap 'chmod -R u+rwx "$SCRATCH" 2>/dev/null; rm -rf "$SCRATCH" 2>/dev/null' EXIT
 
 # mk_env <name>: fresh plugin copy, GSD_HOME, spy on PATH, non-git cwd.
 mk_env() {
@@ -19,7 +19,7 @@ mk_env() {
   (cd "$REPO_ROOT" && cp -R capability.json fragments NOTES.md "$PLUGIN"/)
   cp "$REPO_ROOT/hooks/capability-auto-install.sh" "$PLUGIN/hooks/"
   : > "$CALLS"
-  printf '#!/usr/bin/env bash\necho "$@" >> "%s"\nexit 0\n' "$CALLS" > "$SPY/gsd-tools"
+  printf '#!/usr/bin/env bash\necho "$@" >> "%s"\nmkdir -p "$GSD_HOME/.gsd/capabilities/%s" && : > "$GSD_HOME/.gsd/capabilities/%s/capability.json"\nexit 0\n' "$CALLS" "$ID" "$ID" > "$SPY/gsd-tools"
   chmod +x "$SPY/gsd-tools"
   HASH="$HOME_DIR/.gsd/capability-auto-install-$ID.hash"
 }
@@ -202,8 +202,101 @@ case23() { mk_git c23; mkdir "$E/outside"; printf x > "$E/outside/a.md"
   git -C "$PLUGIN" update-ref refs/remotes/origin/main HEAD
   refused "symlinked top-level directory" 'contains a symlink'; }
 
+# --- hardening ported from sota-numerics (gsd-beads-s8bu) ---
+
+# A deleted global mirror must be repaired even though the sidecar still matches.
+case24() { mk_env c24
+  [ "$(run_hook)" = 0 ] && [ "$(ncalls)" = 1 ] || fail "mirror: first install missing"
+  rm -rf "$HOME_DIR/.gsd/capabilities"
+  [ "$(run_hook)" = 0 ] && [ "$(ncalls)" = 2 ] || fail "mirror: deleted mirror not repaired (calls: $(ncalls))"; }
+
+# A symlink planted at the sidecar path must not redirect the write.
+case25() { mk_env c25; mkdir -p "$(dirname "$HASH")"; printf keep > "$E/victim"; ln -s "$E/victim" "$HASH"
+  [ "$(run_hook)" = 0 ] || fail "sidecar link: exit != 0"
+  [ "$(cat "$E/victim")" = keep ] || fail "sidecar link: write followed the link"
+  [ ! -L "$HASH" ] && [ -s "$HASH" ] || fail "sidecar link: sidecar is not a fresh regular file"; }
+
+# Bytes that move while the install runs are not described by the hash computed before it.
+case26() { mk_env c26; local f; f="$(cd "$PLUGIN/fragments" && ls | head -1)"
+  printf '#!/usr/bin/env bash\necho "$@" >> "%s"\nprintf x >> "%s/fragments/%s"\nexit 0\n' "$CALLS" "$PLUGIN" "$f" > "$SPY/gsd-tools"
+  [ "$(run_hook)" = 0 ] || fail "moved bytes: exit != 0"
+  [ "$(ncalls)" = 1 ] || fail "moved bytes: install not attempted"
+  [ ! -e "$HASH" ] || fail "moved bytes: sidecar recorded a hash the mirror may not match"
+  grep -q 'changed during the install' "$E/stderr" || fail "moved bytes: stderr lacks message: $(cat "$E/stderr")"; }
+
+# The install runs under `timeout -k 5 60`. The stub skips the `true` probe and execs the rest.
+mk_timeout() { # <stub body after the probe>
+  printf '#!/usr/bin/env bash\ncase "$*" in *" true") exit 0;; esac\n%s\n' "$1" > "$SPY/timeout"; chmod +x "$SPY/timeout"; }
+case27() { mk_env c27; mk_timeout 'printf "%s\n" "${*:1:3}" >> "'"$E"'/tlog"; shift 3; exec "$@"'
+  [ "$(run_hook)" = 0 ] || fail "timeout: exit != 0"
+  [ "$(cat "$E/tlog" 2>/dev/null)" = "-k 5 60" ] || fail "timeout: install not wrapped in 'timeout -k 5 60' (log: $(cat "$E/tlog" 2>&1))"
+  [ "$(ncalls)" = 1 ] && [ -s "$HASH" ] || fail "timeout: install through the wrapper failed: $(cat "$E/stderr")"; }
+case28() { mk_env c28; mk_timeout 'exit 124'
+  [ "$(run_hook)" = 0 ] || fail "timeout kill: exit != 0"
+  [ ! -e "$HASH" ] || fail "timeout kill: sidecar written"
+  grep -q 'exceeded 60s' "$E/stderr" || fail "timeout kill: stderr lacks message: $(cat "$E/stderr")"; }
+case29() { mk_env c29
+  printf '#!/usr/bin/env bash\n[ "$1" = -k ] && exit 125\nprintf "%%s\\n" "$1" >> "%s/tlog"; shift; exec "$@"\n' "$E" > "$SPY/timeout"; chmod +x "$SPY/timeout"
+  [ "$(run_hook)" = 0 ] || fail "no -k: exit != 0"
+  [ "$(cat "$E/tlog" 2>/dev/null)" = 60 ] || fail "no -k: bare bound not used (log: $(cat "$E/tlog" 2>&1))"
+  [ "$(ncalls)" = 1 ] || fail "no -k: install did not run"; }
+
+# core.fsmonitor naming a command that answers "nothing changed" hides edits from plain `status`.
+case30() { mk_git c30
+  printf '#!/usr/bin/env bash\nprintf token\n' > "$E/fsm"; chmod +x "$E/fsm"
+  git -C "$PLUGIN" config core.fsmonitor "$E/fsm"
+  git -C "$PLUGIN" status --porcelain >/dev/null 2>&1
+  printf x >> "$PLUGIN/NOTES.md"
+  [ -z "$(git -C "$PLUGIN" status --porcelain -- NOTES.md 2>/dev/null)" ] || fail "fsmonitor: precondition -- the monitored status should look clean"
+  refused "fsmonitor under-reporting" 'uncommitted or ignored'; }
+
+# A submodule inside the bundle told to report itself clean: local config (31) and committed .gitmodules (32).
+mk_submodule() { # <name> [gitmodules line]
+  mk_git "$1"
+  git init -q "$E/sub"; printf lib > "$E/sub/lib.py"; "${G[@]}" "$E/sub" add lib.py; "${G[@]}" "$E/sub" commit -qm sub
+  "${G[@]}" "$PLUGIN" -c protocol.file.allow=always submodule add -q "$E/sub" fragments/vendor
+  [ -z "${2:-}" ] || printf '\tignore = all\n' >> "$PLUGIN/.gitmodules"
+  "${G[@]}" "$PLUGIN" add -A -- .gitmodules fragments; "${G[@]}" "$PLUGIN" commit -qm vendor
+  git -C "$PLUGIN" update-ref refs/remotes/origin/main HEAD
+  printf UNPUBLISHED > "$PLUGIN/fragments/vendor/lib.py"; }
+case31() { mk_submodule c31; git -C "$PLUGIN" config submodule.fragments/vendor.ignore all
+  [ -z "$(git -C "$PLUGIN" status --porcelain --ignored --untracked-files=all -- fragments 2>/dev/null)" ] || fail "submodule: precondition -- configured status should look clean"
+  refused "submodule hidden by config" 'uncommitted or ignored'; }
+case32() { mk_submodule c32 ignore
+  [ -z "$(git -C "$PLUGIN" status --porcelain --ignored --untracked-files=all -- fragments 2>/dev/null)" ] || fail "submodule: precondition -- shipped setting should look clean"
+  refused "submodule hidden by .gitmodules" 'uncommitted or ignored'; }
+
+# A repository git declines to open: discovery fails, yet an ancestor .git holds a HEAD.
+case33() { mk_git c33; printf x >> "$PLUGIN/NOTES.md"; git -C "$PLUGIN" config core.repositoryformatversion 99
+  git -C "$PLUGIN" rev-parse --git-dir >/dev/null 2>&1 && fail "unopenable repo: precondition -- git should decline"
+  refused "repository git declines" 'cannot read the repository'; }
+# Same, with a .git the hook cannot even inspect.
+case34() { [ "$(id -u)" -ne 0 ] || { echo "SKIP: unreadable .git (root ignores chmod 000)"; return 0; }; mk_git c34; printf x >> "$PLUGIN/NOTES.md"; chmod 000 "$PLUGIN/.git"
+  local rc=0; refused "unreadable .git" 'cannot read the repository' || rc=$?; chmod 755 "$PLUGIN/.git"; return $rc; }
+# git answers `--git-dir` but not `ls-files` and no .git exists on the path (GIT_DIR in the environment).
+case35() { mk_git c35; printf x >> "$PLUGIN/NOTES.md"; mv "$PLUGIN/.git" "$E/gd"; printf junk > "$E/gd/index"
+  export GIT_DIR="$E/gd" GIT_WORK_TREE="$PLUGIN"
+  git -C "$PLUGIN" ls-files >/dev/null 2>&1 && fail "env repo: precondition -- ls-files should fail"
+  refused "repository from GIT_DIR" 'cannot read the repository'; }
+# SIGKILL of a child that ignored SIGTERM is reported as the same timeout.
+case36() { mk_env c36; mk_timeout 'exit 137'
+  [ "$(run_hook)" = 0 ] || fail "SIGKILL: exit != 0"
+  [ ! -e "$HASH" ] || fail "SIGKILL: sidecar written"
+  grep -q 'exceeded 60s' "$E/stderr" || fail "SIGKILL: stderr lacks message: $(cat "$E/stderr")"; }
+# No gsd-tools reachable: the timed child returns 127 and the hook says so, writing nothing.
+case37() { mk_env c37; rm -f "$SPY/gsd-tools"
+  (cd "$CWD" && env -i PATH=/usr/bin:/bin CLAUDE_PLUGIN_ROOT="$PLUGIN" GSD_HOME="$HOME_DIR" \
+    bash "$PLUGIN/hooks/capability-auto-install.sh" "$ID" 2>"$E/stderr" >/dev/null)
+  grep -q 'gsd-tools not found' "$E/stderr" || fail "127: stderr lacks message: $(cat "$E/stderr")"
+  [ ! -e "$HASH" ] || fail "127: sidecar written"; }
+# Paths arrive as argv in the timed child, never interpolated into its script.
+case38() { mk_env c38; HOME_DIR="$E/h o'me"; mkdir -p "$HOME_DIR"; HASH="$HOME_DIR/.gsd/capability-auto-install-$ID.hash"
+  [ "$(run_hook)" = 0 ] && [ "$(ncalls)" = 1 ] || fail "odd path: install did not run: $(cat "$E/stderr")"
+  grep -qF "capability install $HOME_DIR/.gsd/capability-bundle-$ID --scope global --yes" "$CALLS" || fail "odd path: argv mangled: $(cat "$CALLS")"
+  [ -s "$HASH" ] || fail "odd path: sidecar not written"; }
+
 rc=0
-for c in "1 baseline" "2 staging failure" "3 file boundary" "4 no home" "5 GSD_HOME only" "6 hostile repo" "7 executable surface" "8 stdin" "9 git unusable" "10 unpublished HEAD" "11 no upstream ref" "12 modified file" "13 untracked file" "14 ignored file" "15 symlink" "16 assume-unchanged" "17 repo tracks no bundle" "18 partly tracked" "19 published" "20 retry once published" "21 unreadable repo" "22 showUntrackedFiles=no" "23 symlinked bundle dir"; do
+for c in "1 baseline" "2 staging failure" "3 file boundary" "4 no home" "5 GSD_HOME only" "6 hostile repo" "7 executable surface" "8 stdin" "9 git unusable" "10 unpublished HEAD" "11 no upstream ref" "12 modified file" "13 untracked file" "14 ignored file" "15 symlink" "16 assume-unchanged" "17 repo tracks no bundle" "18 partly tracked" "19 published" "20 retry once published" "21 unreadable repo" "22 showUntrackedFiles=no" "23 symlinked bundle dir" "24 mirror repaired" "25 sidecar link" "26 bytes moved" "27 timeout wrap" "28 timeout kill" "29 timeout without -k" "30 fsmonitor" "31 submodule config" "32 submodule .gitmodules" "33 repo git declines" "34 unreadable .git" "35 GIT_DIR repo" "36 SIGKILL" "37 no gsd-tools" "38 odd path"; do
   n="${c%% *}"
   if ( "case$n" ) >"$SCRATCH/out$n" 2>&1; then pass "case $c"; else cat "$SCRATCH/out$n"; rc=1; fi
 done

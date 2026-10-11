@@ -183,7 +183,9 @@ codex plugin remove ponytail-everywhere@gsd-beads --json
 - **The `SessionStart` hook re-grants the capability bundle at user scope on every session
   start**, and exits silently when the bundle is unchanged. Change detection hashes each bundle
   file separately, so bytes moved between files count as a change. If staging the bundle fails, the
-  hook reports it on stderr, installs nothing, and retries next session. With no `HOME` or
+  hook reports it on stderr, installs nothing, and retries next session. The install is bounded
+  (60 s); a timeout, or bundle bytes that change while it runs, records nothing and retries next
+  session, and a deleted global mirror is repaired. With no `HOME` or
   `GSD_HOME` it exits quietly. Subagent starts skip the re-grant. Run from a git checkout that
   tracks the bundle, it refuses (stderr message, no install, retried next session) when the bundle
   has uncommitted, untracked or ignored files, a symlink, or a `HEAD` that is not an ancestor of
