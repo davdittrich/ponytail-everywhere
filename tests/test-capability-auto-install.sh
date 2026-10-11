@@ -17,7 +17,7 @@ mk_env() {
   PLUGIN="$E/plugin"; HOME_DIR="$E/home"; SPY="$E/spy"; CALLS="$E/calls"; CWD="$E/cwd"
   mkdir -p "$PLUGIN/hooks" "$HOME_DIR" "$SPY" "$CWD"
   (cd "$REPO_ROOT" && cp -R capability.json fragments NOTES.md "$PLUGIN"/)
-  cp "$REPO_ROOT/hooks/capability-auto-install.sh" "$PLUGIN/hooks/"
+  cp "$REPO_ROOT/hooks/capability-auto-install.sh" "$REPO_ROOT/hooks/gsd-tools.sh" "$PLUGIN/hooks/"
   : > "$CALLS"
   printf '#!/usr/bin/env bash\necho "$@" >> "%s"\nmkdir -p "$GSD_HOME/.gsd/capabilities/%s" && : > "$GSD_HOME/.gsd/capabilities/%s/capability.json"\nexit 0\n' "$CALLS" "$ID" "$ID" > "$SPY/gsd-tools"
   chmod +x "$SPY/gsd-tools"
@@ -294,9 +294,16 @@ case38() { mk_env c38; HOME_DIR="$E/h o'me"; mkdir -p "$HOME_DIR"; HASH="$HOME_D
   [ "$(run_hook)" = 0 ] && [ "$(ncalls)" = 1 ] || fail "odd path: install did not run: $(cat "$E/stderr")"
   grep -qF "capability install $HOME_DIR/.gsd/capability-bundle-$ID --scope global --yes" "$CALLS" || fail "odd path: argv mangled: $(cat "$CALLS")"
   [ -s "$HASH" ] || fail "odd path: sidecar not written"; }
+# The resolver comes from hooks/gsd-tools.sh, sourced in the timed child. A plugin copy
+# without it must fail like a missing gsd-tools: message, no sidecar, retried next session.
+case39() { mk_env c39; rm -f "$PLUGIN/hooks/gsd-tools.sh"
+  [ "$(run_hook)" = 0 ] || fail "missing helper: exit != 0"
+  [ "$(ncalls)" = 0 ] || fail "missing helper: spy called through an inline resolver"
+  [ ! -e "$HASH" ] || fail "missing helper: sidecar written"
+  grep -q 'gsd-tools not found' "$E/stderr" || fail "missing helper: stderr lacks message: $(cat "$E/stderr")"; }
 
 rc=0
-for c in "1 baseline" "2 staging failure" "3 file boundary" "4 no home" "5 GSD_HOME only" "6 hostile repo" "7 executable surface" "8 stdin" "9 git unusable" "10 unpublished HEAD" "11 no upstream ref" "12 modified file" "13 untracked file" "14 ignored file" "15 symlink" "16 assume-unchanged" "17 repo tracks no bundle" "18 partly tracked" "19 published" "20 retry once published" "21 unreadable repo" "22 showUntrackedFiles=no" "23 symlinked bundle dir" "24 mirror repaired" "25 sidecar link" "26 bytes moved" "27 timeout wrap" "28 timeout kill" "29 timeout without -k" "30 fsmonitor" "31 submodule config" "32 submodule .gitmodules" "33 repo git declines" "34 unreadable .git" "35 GIT_DIR repo" "36 SIGKILL" "37 no gsd-tools" "38 odd path"; do
+for c in "1 baseline" "2 staging failure" "3 file boundary" "4 no home" "5 GSD_HOME only" "6 hostile repo" "7 executable surface" "8 stdin" "9 git unusable" "10 unpublished HEAD" "11 no upstream ref" "12 modified file" "13 untracked file" "14 ignored file" "15 symlink" "16 assume-unchanged" "17 repo tracks no bundle" "18 partly tracked" "19 published" "20 retry once published" "21 unreadable repo" "22 showUntrackedFiles=no" "23 symlinked bundle dir" "24 mirror repaired" "25 sidecar link" "26 bytes moved" "27 timeout wrap" "28 timeout kill" "29 timeout without -k" "30 fsmonitor" "31 submodule config" "32 submodule .gitmodules" "33 repo git declines" "34 unreadable .git" "35 GIT_DIR repo" "36 SIGKILL" "37 no gsd-tools" "38 odd path" "39 missing helper"; do
   n="${c%% *}"
   if ( "case$n" ) >"$SCRATCH/out$n" 2>&1; then pass "case $c"; else cat "$SCRATCH/out$n"; rc=1; fi
 done

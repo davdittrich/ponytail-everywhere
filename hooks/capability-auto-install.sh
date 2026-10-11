@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Vendored auto-install hook (vendored copy per plugin, not shared at
-# runtime). Derived from the sota-numerics copy, which keeps its bundle under
+# runtime); needs hooks/gsd-tools.sh beside it. Derived from the sota-numerics
+# copy, which keeps its bundle under
 # .gsd/capabilities/<id>; here the bundle files sit at the plugin root so that
 # `gsd capability install <git url>` also works (URL import reads
 # capability.json at the repo root). Only the bundle files are hashed and
@@ -165,26 +166,6 @@ elif [ "$TRACKED" -ne 1 ] && unverifiable_repo; then
   exit 0
 fi
 
-# gsd_tools() resolver, inlined verbatim from hooks/gsd-tools.sh rather than
-# sourced -- keeping an inline copy here keeps this script dependency-free
-# within its own plugin.
-gsd_tools() {
-  if [ -z "${_GSD_TOOLS_ARGS_SET+x}" ]; then
-    _GSD_TOOLS_ARGS_SET=1
-    # Never resolve from the cwd's git repo: a cloned repo's gsd-core/bin/gsd-tools.cjs is
-    # untrusted code and must not run on SessionStart or command expansion.
-    if command -v gsd-tools >/dev/null 2>&1; then
-      _GSD_TOOLS_ARGS=(gsd-tools)
-    elif [ -f "${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/gsd-core/bin/gsd-tools.cjs" ]; then
-      _GSD_TOOLS_ARGS=(node "${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/gsd-core/bin/gsd-tools.cjs")
-    else
-      _GSD_TOOLS_ARGS=()
-    fi
-  fi
-  [ "${#_GSD_TOOLS_ARGS[@]}" -gt 0 ] || return 127
-  "${_GSD_TOOLS_ARGS[@]}" "$@"
-}
-
 # Stage the bundle files into a persistent clean directory; gsd-core records the
 # install source, so it must outlive this run. Never install a partial bundle,
 # never record the hash: a failed stage exits before either can happen.
@@ -226,12 +207,15 @@ for _t in timeout gtimeout; do
   break
 done
 
-# gsd_tools is a shell function, so the timed child is `bash -c` with its
-# definition spliced in; the bundle dir and flags arrive as argv, never
-# interpolated. The "${_TIMEOUT[@]+...}" form is deliberate: a bare empty array
-# aborts under `set -u` on bash 3.2 (macOS).
-"${_TIMEOUT[@]+"${_TIMEOUT[@]}"}" bash -c "$(declare -f gsd_tools); gsd_tools capability install \"\$@\"" _ \
-  "$BUNDLE_DIR" --scope global "${_YES[@]+"${_YES[@]}"}" </dev/null >/dev/null 2>&1
+# gsd_tools is a shell function from hooks/gsd-tools.sh, so the timed child is
+# `bash -c` and sources it there: nothing outside the timeout runs before the
+# install decision. A plugin copy without the helper leaves it undefined: exit
+# 127, no sidecar, retried next session. PLUGIN_ROOT, the bundle dir and flags
+# arrive as argv, never interpolated. The "${_TIMEOUT[@]+...}" form is
+# deliberate: a bare empty array aborts under `set -u` on bash 3.2 (macOS).
+_INSTALL_CHILD='[ -f "$1/hooks/gsd-tools.sh" ] && . "$1/hooks/gsd-tools.sh"; gsd_tools capability install "${@:2}"'
+"${_TIMEOUT[@]+"${_TIMEOUT[@]}"}" bash -c "$_INSTALL_CHILD" _ \
+  "$PLUGIN_ROOT" "$BUNDLE_DIR" --scope global "${_YES[@]+"${_YES[@]}"}" </dev/null >/dev/null 2>&1
 INSTALL_STATUS=$?
 
 # Without --yes gsd-core discloses the executable surfaces and stops. No hash

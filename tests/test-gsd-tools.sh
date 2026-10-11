@@ -6,7 +6,6 @@ set -u
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GSD_TOOLS_SH="$REPO_ROOT/hooks/gsd-tools.sh"
-AUTO_INSTALL_SH="$REPO_ROOT/hooks/capability-auto-install.sh"
 
 FAILED=0
 fail() { echo "FAIL: $1"; FAILED=1; }
@@ -33,7 +32,7 @@ fi
 
 # --- Case b: CLAUDE_CONFIG_DIR fallback must guard HOME with ${HOME:-} ---
 EXPECT='${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}'
-for f in "$GSD_TOOLS_SH" "$AUTO_INSTALL_SH"; do
+for f in "$GSD_TOOLS_SH"; do
   name="${f#"$REPO_ROOT"/}"
   LINES="$(grep -F 'CLAUDE_CONFIG_DIR:-' "$f")"
   if [ -z "$LINES" ]; then
