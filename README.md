@@ -188,7 +188,8 @@ codex plugin remove ponytail-everywhere@gsd-beads --json
   session, and a deleted global mirror is repaired. With no `HOME` or
   `GSD_HOME` it exits quietly. Subagent starts skip the re-grant. Run from a git checkout that
   tracks the bundle, it refuses (stderr message, no install, retried next session) when the bundle
-  has uncommitted, untracked or ignored files, a symlink, or a `HEAD` that is not an ancestor of
+  has uncommitted, untracked or ignored files, a symlink, a file selected by a git `filter`
+  attribute (a clean filter can hide an edit from `git status`), or a `HEAD` that is not an ancestor of
   the local `origin/HEAD` or `origin/main`; a plugin-cache copy outside any repository installs
   normally.
 - **Installing through the marketplace copies the cloned repo into the runtime's local plugin

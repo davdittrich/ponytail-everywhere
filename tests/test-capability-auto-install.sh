@@ -128,6 +128,8 @@ case8() {
 #   3. tracked, symlink in the bundle         -> refuse   (cases 15, 23)
 #   4. tracked, index hides edits             -> refuse   (case 16)
 #   5. tracked, dirty/untracked/ignored files -> refuse   (cases 12, 13, 14, 18, 22)
+#   5b. tracked, filter attribute (or check-attr cannot answer) -> refuse (cases 40-42;
+#       43 is the -filter opt-out that installs)
 #   6. tracked, no origin/HEAD|origin/main    -> refuse   (case 11)
 #   7. tracked, HEAD not an ancestor of it    -> refuse   (case 10)
 #   8. tracked, clean and published           -> install  (cases 19, 20)
@@ -304,8 +306,31 @@ case39() { mk_env c39; rm -f "$PLUGIN/hooks/gsd-tools.sh"
   [ ! -e "$HASH" ] || fail "missing helper: sidecar written"
   grep -q 'gsd-tools not found' "$E/stderr" || fail "missing helper: stderr lacks message: $(cat "$E/stderr")"; }
 
+# A clean filter maps an edited worktree file back onto its committed blob, so `status`
+# is clean while the install copies the edit. Only a same-size edit reaches the filtered
+# comparison (git trusts a changed size without running the filter). Ported from sota-numerics.
+case40() { mk_git c40
+  git -C "$PLUGIN" show HEAD:NOTES.md > "$E/canon"
+  printf '#!/usr/bin/env bash\ncat >/dev/null\ncat "%s"\n' "$E/canon" > "$E/clean"; chmod +x "$E/clean"
+  git -C "$PLUGIN" config filter.hide.clean "$E/clean"; printf 'NOTES.md filter=hide\n' >> "$PLUGIN/.git/info/attributes"
+  { printf 'Z'; tail -c +2 "$E/canon"; } > "$PLUGIN/NOTES.md"
+  cmp -s "$E/canon" "$PLUGIN/NOTES.md" && fail "filter: precondition -- the edit must differ"
+  [ -z "$(git -C "$PLUGIN" status --porcelain --ignored --untracked-files=all --ignore-submodules=none -- NOTES.md 2>/dev/null)" ] || fail "filter: precondition -- the filtered status should look clean"
+  refused "clean filter hiding an edit" 'filter attribute'; }
+# check-attr cannot answer: refuse, do not read an empty answer as "no filter".
+case41() { mk_git c41; local real; real="$(command -v git)"
+  printf '#!/usr/bin/env bash\nfor a in "$@"; do [ "$a" = check-attr ] && { echo "fatal: unreadable" >&2; exit 128; }; done\nexec "%s" "$@"\n' "$real" > "$SPY/git"; chmod +x "$SPY/git"
+  refused "check-attr failing" 'filter attribute'; }
+# A newline inside a tracked path must not shift the attribute triples. Only that file selects the filter.
+case42() { mk_git c42; printf x > "$PLUGIN/fragments/$(printf 'zz\nb\nunspecified')"
+  "${G[@]}" "$PLUGIN" add fragments; "${G[@]}" "$PLUGIN" commit -qm nl; git -C "$PLUGIN" update-ref refs/remotes/origin/main HEAD
+  printf 'zz* filter=hide\n' >> "$PLUGIN/.git/info/attributes"
+  refused "newline in a tracked path" 'filter attribute'; }
+# `-filter` is the repository-local way out of a global rule.
+case43() { mk_git c43; printf '* -filter\n' >> "$PLUGIN/.git/info/attributes"; installed "unset filter"; }
+
 rc=0
-for c in "1 baseline" "2 staging failure" "3 file boundary" "4 no home" "5 GSD_HOME only" "6 hostile repo" "7 executable surface" "8 stdin" "9 git unusable" "10 unpublished HEAD" "11 no upstream ref" "12 modified file" "13 untracked file" "14 ignored file" "15 symlink" "16 assume-unchanged" "17 repo tracks no bundle" "18 partly tracked" "19 published" "20 retry once published" "21 unreadable repo" "22 showUntrackedFiles=no" "23 symlinked bundle dir" "24 mirror repaired" "25 sidecar link" "26 bytes moved" "27 timeout wrap" "28 timeout kill" "29 timeout without -k" "30 fsmonitor" "31 submodule config" "32 submodule .gitmodules" "33 repo git declines" "34 unreadable .git" "35 GIT_DIR repo" "36 SIGKILL" "37 no gsd-tools" "38 odd path" "39 missing helper"; do
+for c in "1 baseline" "2 staging failure" "3 file boundary" "4 no home" "5 GSD_HOME only" "6 hostile repo" "7 executable surface" "8 stdin" "9 git unusable" "10 unpublished HEAD" "11 no upstream ref" "12 modified file" "13 untracked file" "14 ignored file" "15 symlink" "16 assume-unchanged" "17 repo tracks no bundle" "18 partly tracked" "19 published" "20 retry once published" "21 unreadable repo" "22 showUntrackedFiles=no" "23 symlinked bundle dir" "24 mirror repaired" "25 sidecar link" "26 bytes moved" "27 timeout wrap" "28 timeout kill" "29 timeout without -k" "30 fsmonitor" "31 submodule config" "32 submodule .gitmodules" "33 repo git declines" "34 unreadable .git" "35 GIT_DIR repo" "36 SIGKILL" "37 no gsd-tools" "38 odd path" "39 missing helper" "40 clean filter" "41 check-attr fails" "42 newline path" "43 unset filter"; do
   n="${c%% *}"
   if ( "case$n" ) >"$SCRATCH/out$n" 2>&1; then pass "case $c"; else cat "$SCRATCH/out$n"; rc=1; fi
 done

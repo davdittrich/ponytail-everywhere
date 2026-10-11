@@ -134,8 +134,8 @@ if [ "$TRACKED" -eq 0 ]; then
   fi
   # Each option states what this question needs, not what repo config gives:
   # --untracked-files=all (showUntrackedFiles=no), --ignored (ignore rules),
-  # --ignore-submodules=none (submodule.<n>.ignore), fsmonitor off. Residual: a
-  # `.gitattributes` clean filter maps edited bytes onto the committed blob.
+  # --ignore-submodules=none (submodule.<n>.ignore), fsmonitor off. A clean
+  # filter is closed separately, by the attribute check below (case 40).
   # Read the exit status before the output: empty output from a failed
   # `status` looks like a clean tree.
   if ! DIRTY="$(git -c core.fsmonitor= -C "$BUNDLE_SRC" status --porcelain --ignored \
@@ -145,6 +145,27 @@ if [ "$TRACKED" -eq 0 ]; then
   fi
   if [ -n "$DIRTY" ]; then
     echo "capability-auto-install: $CAP_ID bundle has uncommitted or ignored files; refusing to install it at global scope" >&2
+    exit 0
+  fi
+  # A `filter` attribute selects a clean filter, which can map an edited
+  # worktree file back onto its committed blob: `status` and the index are then
+  # honestly clean while the staged copy carries the edit (case 40). The driver
+  # lives in local config, so the bytes cannot be compared through git; any
+  # bundle file that selects a filter is refused, wherever the attribute comes
+  # from (a global core.attributesFile included).
+  #
+  # check-attr prints path, attribute, value as NUL-separated triples. tr swaps
+  # "\n" for \001 and NUL for "\n" first, so a newline inside a path cannot
+  # shift the triples (case 42). Only "unspecified" and "unset" (`-filter`, the
+  # repository-local way out of a global rule, case 43) select no filter.
+  # pipefail: a failed stage refuses instead of reading as "no filter" (case 41).
+  if ! FILTERED="$(set -o pipefail
+                   git -C "$BUNDLE_SRC" ls-files -z -- "${BUNDLE_FILES[@]}" 2>/dev/null |
+                   git -C "$BUNDLE_SRC" check-attr -z --stdin filter 2>/dev/null |
+                   tr '\n\0' '\001\n' |
+                   awk 'NR % 3 == 0 && $0 != "unspecified" && $0 != "unset"')" ||
+     [ -n "$FILTERED" ]; then
+    echo "capability-auto-install: a git filter attribute applies to the $CAP_ID bundle (or attributes could not be read), which can hide edits from git (set -filter in .git/info/attributes to opt out); refusing to install it at global scope" >&2
     exit 0
   fi
   # origin/HEAD and origin/main are local refs: passing proves HEAD is an
