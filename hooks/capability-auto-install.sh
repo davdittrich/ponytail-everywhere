@@ -59,6 +59,110 @@ NEW_HASH="$(bundle_hash)"
 # Fast path: unchanged bundle exits silently, never spawns node.
 [ "$NEW_HASH" = "$OLD_HASH" ] && exit 0
 
+# Fail closed: a git that cannot answer is not "safe" (`command -v` alone
+# misses a git on PATH that exits non-zero).
+if ! command -v git >/dev/null 2>&1 || ! git --version >/dev/null 2>&1; then
+  echo "capability-auto-install: git is unusable, so $CAP_ID bundle provenance cannot be verified; refusing to install it at global scope" >&2
+  exit 0
+fi
+
+# Global install publishes machine-wide, so only already-published bytes may
+# be installed: this plugin is developed in a worktree the host loads. No
+# refusal writes STATE_FILE, so a later session retries once published.
+# Ownership, not enclosure: only a repository that *tracks* the bundle speaks
+# for its bytes. A plugin-cache copy sits in no repository and is not guarded.
+# Derived from sota-numerics; tests/test-capability-auto-install.sh header
+# lists the rows.
+#
+# TRACKED is 0 when the repository tracks any BUNDLE_FILES entry (apply the
+# publication checks), 1 when it answered and tracks none, 128 when git did
+# not answer -- never read as "untracked". Not `--error-unmatch`: with several
+# pathspecs it exits 1 when any one is unmatched, so a partly tracked bundle
+# would skip the checks.
+#
+# unverifiable_repo() decides the 128 case: `--git-dir` succeeding means a
+# repository exists and did not answer; otherwise walk the ancestors -- an
+# uninspectable .git is assumed a repository, one holding a HEAD is one git
+# declined, an inspectable .git without HEAD is walked past.
+unverifiable_repo() {
+  git -C "$BUNDLE_SRC" rev-parse --git-dir >/dev/null 2>&1 && return 0
+  local _d="$BUNDLE_SRC" _g _prev
+  while :; do
+    _g="$_d/.git"
+    if [ -e "$_g" ] &&
+       ! { [ -d "$_g" ] && [ -r "$_g" ] && [ -x "$_g" ] && [ ! -e "$_g/HEAD" ]; }; then
+      return 0
+    fi
+    # Stop when dirname stops moving, not at "/": a relative path converges on
+    # "." and would hang.
+    _prev="$_d"
+    _d="$(dirname "$_d")"
+    [ "$_d" = "$_prev" ] && return 1
+  done
+}
+
+TRACKED=0
+if ! _LS="$(git -C "$BUNDLE_SRC" ls-files -- "${BUNDLE_FILES[@]}" 2>/dev/null)"; then
+  TRACKED=128
+elif [ -z "$_LS" ]; then
+  TRACKED=1
+fi
+if [ "$TRACKED" -eq 0 ]; then
+  # gsd-core rejects symlinks, and a committed link passes every check below
+  # (git compares the link, not its target). BUNDLE_FILES carry no trailing
+  # slash, so find also reports a symlinked top-level path itself (case 23).
+  _LINKS="$(find "${BUNDLE_FILES[@]/#/$BUNDLE_SRC/}" -type l -print -quit 2>/dev/null)"
+  if [ -n "$_LINKS" ]; then
+    echo "capability-auto-install: the $CAP_ID bundle contains a symlink, which gsd-core rejects; refusing to install it at global scope" >&2
+    exit 0
+  fi
+  # `status` reads the index, which `update-index --assume-unchanged` and
+  # `--skip-worktree` silence. `ls-files -v` tags a plain entry H; anything
+  # else was told not to be checked (sparse checkout sets skip-worktree too).
+  # Capture the status before the output: piping into `grep` takes grep's
+  # status and hides a failed `ls-files`.
+  if ! INDEX_TAGS="$(git -C "$BUNDLE_SRC" ls-files -v -- "${BUNDLE_FILES[@]}" 2>/dev/null)"; then
+    echo "capability-auto-install: git could not list the index entries for the $CAP_ID bundle, so whether the index hides edits cannot be determined; refusing to install it at global scope" >&2
+    exit 0
+  fi
+  if printf '%s\n' "$INDEX_TAGS" | grep -q '^[^H]'; then
+    echo "capability-auto-install: the index marks $CAP_ID bundle entries assume-unchanged or skip-worktree, so git will not report edits to them; refusing to install it at global scope" >&2
+    exit 0
+  fi
+  # Each option states what this question needs, not what repo config gives:
+  # --untracked-files=all (showUntrackedFiles=no), --ignored (ignore rules),
+  # --ignore-submodules=none (submodule.<n>.ignore), fsmonitor off. Residual: a
+  # `.gitattributes` clean filter maps edited bytes onto the committed blob.
+  # Read the exit status before the output: empty output from a failed
+  # `status` looks like a clean tree.
+  if ! DIRTY="$(git -c core.fsmonitor= -C "$BUNDLE_SRC" status --porcelain --ignored \
+                    --untracked-files=all --ignore-submodules=none -- "${BUNDLE_FILES[@]}" 2>/dev/null)"; then
+    echo "capability-auto-install: git could not report the state of the $CAP_ID bundle, so its contents cannot be verified; refusing to install it at global scope" >&2
+    exit 0
+  fi
+  if [ -n "$DIRTY" ]; then
+    echo "capability-auto-install: $CAP_ID bundle has uncommitted or ignored files; refusing to install it at global scope" >&2
+    exit 0
+  fi
+  # origin/HEAD and origin/main are local refs: passing proves HEAD is an
+  # ancestor of the last fetched tip, not that a server holds it now (a round
+  # trip per SessionStart would put the capability behind network and
+  # credentials). Fail closed: an unresolvable upstream proves nothing.
+  PUBLISHED="$(git -C "$BUNDLE_SRC" rev-parse --verify --quiet origin/HEAD ||
+               git -C "$BUNDLE_SRC" rev-parse --verify --quiet origin/main)"
+  if [ -z "$PUBLISHED" ]; then
+    echo "capability-auto-install: $CAP_ID bundle has no origin/HEAD or origin/main to prove it is published; refusing to install it at global scope" >&2
+    exit 0
+  fi
+  if ! git -C "$BUNDLE_SRC" merge-base --is-ancestor HEAD "$PUBLISHED" 2>/dev/null; then
+    echo "capability-auto-install: $CAP_ID bundle HEAD is not published (not an ancestor of $PUBLISHED); refusing to install it at global scope" >&2
+    exit 0
+  fi
+elif [ "$TRACKED" -ne 1 ] && unverifiable_repo; then
+  echo "capability-auto-install: git cannot read the repository holding the $CAP_ID bundle, so its provenance cannot be verified; refusing to install it at global scope" >&2
+  exit 0
+fi
+
 # gsd_tools() resolver, inlined verbatim from hooks/gsd-tools.sh rather than
 # sourced -- keeping an inline copy here keeps this script dependency-free
 # within its own plugin.

@@ -184,7 +184,11 @@ codex plugin remove ponytail-everywhere@gsd-beads --json
   start**, and exits silently when the bundle is unchanged. Change detection hashes each bundle
   file separately, so bytes moved between files count as a change. If staging the bundle fails, the
   hook reports it on stderr, installs nothing, and retries next session. With no `HOME` or
-  `GSD_HOME` it exits quietly. Subagent starts skip the re-grant.
+  `GSD_HOME` it exits quietly. Subagent starts skip the re-grant. Run from a git checkout that
+  tracks the bundle, it refuses (stderr message, no install, retried next session) when the bundle
+  has uncommitted, untracked or ignored files, a symlink, or a `HEAD` that is not an ancestor of
+  the local `origin/HEAD` or `origin/main`; a plugin-cache copy outside any repository installs
+  normally.
 - **Installing through the marketplace copies the cloned repo into the runtime's local plugin
   cache** under `~/.claude/plugins/cache/` for Claude Code or `~/.codex/plugins/cache/` for Codex.
   This repo does not control either runtime's cache layout.
