@@ -137,6 +137,15 @@ run_and_cleanup
 [ "$STATUS" -eq 0 ] || fail "case9: enabled=false exited non-zero"
 pass "case9: ponytail.enabled=false silent exit 0"
 
+# --- Case 9b: enabled=false also silences the executor role ---
+mk_scratch '{"ponytail": {"enabled": false, "level": "full"}}'
+OUT="$(CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT" executor)"
+STATUS=$?
+run_and_cleanup
+[ -z "$OUT" ] || fail "case9b: executor enabled=false produced output"
+[ "$STATUS" -eq 0 ] || fail "case9b: executor enabled=false exited non-zero"
+pass "case9b: executor with ponytail.enabled=false silent exit 0"
+
 # --- Case 10: CLAUDE_PLUGIN_ROOT unset vs set -> byte-identical output (review finding 3) ---
 mk_scratch '{"ponytail": {"enabled": true, "level": "full"}}'
 OUT_SET="$(CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT" executor)"
@@ -259,9 +268,12 @@ pass "case17: HOME and CLAUDE_CONFIG_DIR unset, no abort with or without CLAUDE_
 
 # --- Case 18: executor parity with upstream ponytail write-time rules (gh-13) ---
 EXEC_ONLY=('Deletion beats addition' 'Comment only the why' 'Trivial changes need none')
-EXEC_ALL=('lazy senior developer' 'the best code is the code never written' 'Deletion beats addition' 'decoding' 'Comment only the why' 'correct on edge cases' 'Trivial changes need none' 'data it would destroy or expose' 'calibration')
-# Baseline at git HEAD before gh-13: ultra executor text = 246 words (full 222, lite 205); budget is baseline + 130.
-EXEC_WORD_CAP=$((246 + 130))
+EXEC_ALL=('lazy senior developer' 'the best code is the code never written' 'lazy about the solution' '"for later" code' 'existing structure'
+  'Extra features are not scope' 'Shortest working diff' 'Deletion beats addition' 'needs decoding is not short' 'Comment only the why'
+  'correct on edge cases' 'shortcut: <limit>, <when to upgrade>' 'assert-based self-check' 'Trivial changes need none' 'grep every caller'
+  'End the reply' 'data it would destroy or expose' 'the calibration real hardware needs' 'Moved or merged code keeps')
+# Executor ultra text was 235 words on main (6774ace); the gh-13 write-time rules add 125; cap = 235 + 125 + 3.
+EXEC_WORD_CAP=$((235 + 125 + 3))
 for L in lite full ultra; do
   mk_scratch "{\"ponytail\": {\"enabled\": true, \"level\": \"$L\"}}"
   OUT="$(ctx "$(CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT" executor)")"
@@ -269,14 +281,16 @@ for L in lite full ultra; do
   for p in "${EXEC_ALL[@]}"; do
     printf '%s' "$OUT" | grep -Fq "$p" || fail "case18: executor level=$L missing '$p'"
   done
+  [ "$L" = ultra ] && WORDS="$(printf '%s' "$OUT" | wc -w)"
 done
-pass "case18: executor carries every parity phrase at lite/full/ultra"
+[ "$WORDS" -le "$EXEC_WORD_CAP" ] || fail "case18: executor ultra text $WORDS words exceeds budget $EXEC_WORD_CAP"
+pass "case18: executor carries every parity phrase at lite/full/ultra; ultra text $WORDS words within budget"
 
 # --- Case 19: other roles get the floors clause but no executor-only rules ---
 mk_scratch '{"ponytail": {"enabled": true, "level": "full"}}'
 for R in planner verifier ""; do
   if [ -n "$R" ]; then OUT="$(ctx "$(CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT" "$R")")"
-  else OUT="$(CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT")"; fi
+  else OUT="$(CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT" 2>/dev/null)"; fi
   printf '%s' "$OUT" | grep -Fq 'calibration' || fail "case19: role='$R' missing calibration floor"
   for p in "${EXEC_ONLY[@]}"; do
     printf '%s' "$OUT" | grep -Fq "$p" && fail "case19: role='$R' leaked executor-only '$p'"
@@ -285,19 +299,14 @@ done
 run_and_cleanup
 pass "case19: planner/verifier/generic keep calibration floor, no executor-only rules"
 
-# --- Case 20: fragment drift pin + executor word budget ---
+# --- Case 20: fragment drift pin ---
 for p in "${EXEC_ALL[@]}"; do
   grep -Fq "$p" "$FRAG/executor-ladder.md" || fail "case20: executor fragment missing '$p'"
 done
 for f in planner verifier; do
   grep -Fq 'the calibration real hardware needs' "$FRAG/$f-ladder.md" || fail "case20: $f fragment missing calibration floor"
 done
-mk_scratch '{"ponytail": {"enabled": true, "level": "ultra"}}'
-OUT="$(ctx "$(CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT" executor)")"
-run_and_cleanup
-WORDS="$(printf '%s' "$OUT" | wc -w)"
-[ "$WORDS" -le "$EXEC_WORD_CAP" ] || fail "case20: executor ultra text $WORDS words exceeds budget"
-pass "case20: fragment pins phrases; executor ultra text $WORDS words within budget"
+pass "case20: fragment pins every parity phrase and the planner/verifier calibration floor"
 
 echo "ALL PASS"
 exit 0

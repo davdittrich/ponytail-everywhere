@@ -20,7 +20,11 @@ Subagent banners go out as `hookSpecificOutput.additionalContext` JSON, the only
 delivers to a subagent. Levels follow upstream: `lite` builds what was asked and names the smaller
 option, `full` climbs the ladder, `ultra` also questions the request.
 
-The executor receives the full upstream write-time rule set at every level: the lazy-senior-developer stance, a user-breakage check before writing, no unrequested abstraction or "for later" code, deletion over addition, comments only for the why, edge-case-correct choice between equal options, and one small test for non-trivial logic (none for trivial changes). All roles' floors also keep the calibration real hardware needs.
+The executor receives the full upstream write-time rule set at every level: the
+lazy-senior-developer stance, a user-breakage check, no unrequested abstraction or
+"for later" code, deletion over addition, comments only for the why, edge-case-correct choice
+between equal options, and one small test for non-trivial logic (none for trivial changes). All
+roles' floors also keep the calibration real hardware needs.
 
 ### With upstream ponytail
 
