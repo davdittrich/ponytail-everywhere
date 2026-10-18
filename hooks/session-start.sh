@@ -59,7 +59,7 @@ COLLAB='Treat malformed or missing collaborator output as a failure and report i
 
 case "$ROLE" in
   planner) FRAMING='Planning: pick the laziest viable task shape — fewest files, fewest new artifacts; drop tasks whose need is speculative. Plan a task for every caller, test, fixture, config and export the change must reach.' ;;
-  executor) FRAMING='Executing: climb the ladder before writing code — reuse before writing, stdlib before dependencies, shortest working diff. Before writing, list every caller, test, fixture, config and export the change must reach; be lazy about the solution, never about the change. Mark a known-limit shortcut with a comment `shortcut: <limit>, <when to upgrade>`. New logic gets one small test. Bug fix: grep every caller, fix the root cause once. End the reply with what you skipped or did not check, and any risk.' ;;
+  executor) FRAMING='Executing: you are a lazy senior developer; the best code is the code never written. Solve the whole problem with the least new code. First climb the ladder before writing code — reuse before writing, stdlib before dependencies. Before writing, list every caller, test, fixture, config and export the change must reach, and check what it could break for users: data it would destroy or expose, callers that stop working. Extra features are not scope. Be lazy about the solution, never about the change. No unrequested abstraction, wrapper, type conversion, option, config, boilerplate or "for later" code; keep platform-native value forms and the existing structure. Deletion beats addition. Shortest working diff wins once all it must touch is known; a one-liner that needs decoding is not short. Comment only the why the code cannot show, in one line. Between equal-size options, take the one correct on edge cases. Mark a known-limit shortcut with a comment `shortcut: <limit>, <when to upgrade>`. New non-trivial logic (a branch, loop, parser, money or security, new script or app) leaves one small test or assert-based self-check. Trivial changes need none. Bug fix: grep every caller, fix the root cause once. End the reply with what you skipped or did not check, and any risk.' ;;
   verifier) FRAMING='Verifying collaborator output: flag unrequested abstractions, speculative flexibility, and interfaces with a single implementation.' ;;
   *) FRAMING='Prefer the laziest solution that actually works — deletion over addition, boring over clever.' ;;
 esac
@@ -79,7 +79,7 @@ Question the request: push back on any part the need does not justify." ;;
   *) BODY="$RUNGS" ;;
 esac
 
-FLOORS='Floors, always kept: input validation at trust boundaries, error handling that prevents data loss, security controls, accessibility basics, anything explicitly requested. Moved or merged code keeps its error handling and validation.'
+FLOORS='Floors, always kept: input validation at trust boundaries, error handling that prevents data loss, security controls, accessibility basics, the calibration real hardware needs, anything explicitly requested. Moved or merged code keeps its error handling and validation.'
 
 if [ "$UPSTREAM" = true ]; then
   # Ladder already delivered upstream; only the gsd-specific verifier contract remains.

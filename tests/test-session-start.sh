@@ -257,5 +257,47 @@ for PROJ in "" "$PLUGIN_DIR"; do # "" -> line 47 flag path; set -> line 50 per-p
 done
 pass "case17: HOME and CLAUDE_CONFIG_DIR unset, no abort with or without CLAUDE_PROJECT_DIR"
 
+# --- Case 18: executor parity with upstream ponytail write-time rules (gh-13) ---
+EXEC_ONLY=('Deletion beats addition' 'Comment only the why' 'Trivial changes need none')
+EXEC_ALL=('lazy senior developer' 'the best code is the code never written' 'Deletion beats addition' 'decoding' 'Comment only the why' 'correct on edge cases' 'Trivial changes need none' 'data it would destroy or expose' 'calibration')
+# Baseline at git HEAD before gh-13: ultra executor text = 246 words (full 222, lite 205); budget is baseline + 130.
+EXEC_WORD_CAP=$((246 + 130))
+for L in lite full ultra; do
+  mk_scratch "{\"ponytail\": {\"enabled\": true, \"level\": \"$L\"}}"
+  OUT="$(ctx "$(CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT" executor)")"
+  run_and_cleanup
+  for p in "${EXEC_ALL[@]}"; do
+    printf '%s' "$OUT" | grep -Fq "$p" || fail "case18: executor level=$L missing '$p'"
+  done
+done
+pass "case18: executor carries every parity phrase at lite/full/ultra"
+
+# --- Case 19: other roles get the floors clause but no executor-only rules ---
+mk_scratch '{"ponytail": {"enabled": true, "level": "full"}}'
+for R in planner verifier ""; do
+  if [ -n "$R" ]; then OUT="$(ctx "$(CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT" "$R")")"
+  else OUT="$(CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT")"; fi
+  printf '%s' "$OUT" | grep -Fq 'calibration' || fail "case19: role='$R' missing calibration floor"
+  for p in "${EXEC_ONLY[@]}"; do
+    printf '%s' "$OUT" | grep -Fq "$p" && fail "case19: role='$R' leaked executor-only '$p'"
+  done
+done
+run_and_cleanup
+pass "case19: planner/verifier/generic keep calibration floor, no executor-only rules"
+
+# --- Case 20: fragment drift pin + executor word budget ---
+for p in "${EXEC_ALL[@]}"; do
+  grep -Fq "$p" "$FRAG/executor-ladder.md" || fail "case20: executor fragment missing '$p'"
+done
+for f in planner verifier; do
+  grep -Fq 'the calibration real hardware needs' "$FRAG/$f-ladder.md" || fail "case20: $f fragment missing calibration floor"
+done
+mk_scratch '{"ponytail": {"enabled": true, "level": "ultra"}}'
+OUT="$(ctx "$(CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" bash "$SCRIPT" executor)")"
+run_and_cleanup
+WORDS="$(printf '%s' "$OUT" | wc -w)"
+[ "$WORDS" -le "$EXEC_WORD_CAP" ] || fail "case20: executor ultra text $WORDS words exceeds budget"
+pass "case20: fragment pins phrases; executor ultra text $WORDS words within budget"
+
 echo "ALL PASS"
 exit 0

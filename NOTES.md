@@ -99,6 +99,8 @@ the sibling `ponytail-everywhere` Claude Code plugin's role-matched `SubagentSta
 which fire directly on `gsd-executor` and `gsd-verifier` subagent spawn regardless of what any
 `capability.json` `contributions[]` entry declares.
 
+What reaches the executor on that path is the full upstream write-time checklist (gh-13): stance, user-breakage check, no unrequested abstraction, deletion over addition, why-only comments, edge-case tie-break, test rule with trivial exemption, plus the shared hardware-calibration floor. `tests/test-session-start.sh` cases 18-20 pin the hook text, the fragment and a word budget.
+
 ## Why no gsd-core patch (D-01)
 
 `.gsd/capabilities/beads/GSD-CORE-PATCH.md` records this repo's one precedent for patching a
